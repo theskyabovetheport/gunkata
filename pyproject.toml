@@ -3,8 +3,24 @@ name = "gunkata"
 version = "0.1.0"
 description = "Tools to improve security research workflows for Android devices"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Finn", email = "theskyabovetheport@bratanmail.com" }]
 requires-python = ">=3.13"
 dependencies = ["typer>=0.12"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.13",
+]
+
+[project.urls]
+Homepage = "https://github.com/theskyabovetheport/gunkata"
+Repository = "https://github.com/theskyabovetheport/gunkata"
 
 [project.scripts]
 gunkata = "gunkata.main:main"

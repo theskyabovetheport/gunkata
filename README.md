@@ -6,10 +6,8 @@ Tools to improve security research workflows for Android devices.
 
 ## Layout
 
-Single package, `src/` layout:
-
-- `src/gunkata/core/` — core logic, presentation-free.
-- `src/gunkata/cli/` — Typer CLI; installs the `gunkata` console script.
+Single package, `src/` layout: `src/gunkata/`. `main.py` holds the Typer CLI
+(installs the `gunkata` console script); everything else is library code.
 
 ## Development
 
