@@ -3,6 +3,8 @@
 from .adb import Adb
 from .device import Device
 from .logcat import Level, Logcat, LogcatEntry
+from .procmaps import AmbiguousProcessError, NoSuchProcessError, ProcMaps
+from .ps import ProcessEntry, Ps
 from .shell import Shell
 from .stream import Stream
 from .types import ShellResult
@@ -22,3 +24,11 @@ def sh(command: str) -> ShellResult:
 
 def logcat(tail: int | None = 1, follow: bool = True) -> Logcat:
     return Logcat(shell(), tail=tail, follow=follow)
+
+
+def procmaps() -> ProcMaps:
+    return ProcMaps(shell())
+
+
+def ps() -> Ps:
+    return Ps(shell())

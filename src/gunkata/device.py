@@ -2,6 +2,8 @@ import subprocess
 from enum import Enum
 from .adb import Adb
 from .logcat import Level, Logcat
+from .procmaps import ProcMaps
+from .ps import Ps
 from .settings import SuBinary
 from .shell import Shell
 
@@ -57,6 +59,22 @@ class Device:
             ValueError: tail is below one, which logcat cannot express.
         """
         return Logcat(self.shell(), tail=tail, follow=follow, tags=tags)
+
+    def procmaps(self) -> ProcMaps:
+        """Read this device's processes' /proc/<pid>/maps.
+
+        Returns:
+            A reader that resolves a pid or process name to that file's bytes.
+        """
+        return ProcMaps(self.shell())
+
+    def ps(self) -> Ps:
+        """Read this device's process list.
+
+        Returns:
+            A cached view over `ps -A`; see Ps for its caching behaviour.
+        """
+        return Ps(self.shell())
 
     @property
     def has_su(self) -> bool:
