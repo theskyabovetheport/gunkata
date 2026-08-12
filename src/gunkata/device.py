@@ -1,6 +1,7 @@
 import subprocess
 from enum import Enum
 from .adb import Adb
+from .edit import Edit
 from .logcat import Level, Logcat
 from .memory import Memory
 from .procmaps import ProcMaps
@@ -89,6 +90,20 @@ class Device:
             on every read and write; see Memory.
         """
         return Memory(self.shell(user=user), pid)
+
+    def edit(self, user: str | None = None, editor: str | None = None) -> Edit:
+        """Edit a device file through a local editor, sudoedit-style.
+
+        Args:
+            user: Run the underlying read/write as this user (default: root
+                if su is available, else shell).
+            editor: Take this editor over $VISUAL/$EDITOR.
+
+        Returns:
+            An action bound to this device's shell; call .run(dpath) to
+            edit one file.
+        """
+        return Edit(self.shell(user=user), editor=editor)
 
     @property
     def has_su(self) -> bool:

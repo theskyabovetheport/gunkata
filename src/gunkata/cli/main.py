@@ -8,6 +8,7 @@ from gunkata.cli import (  # noqa: F401 -- imported for their command-registrati
     addr,
     device,
     devices,
+    edit,
     mem,
     pidof,
     procmaps,
