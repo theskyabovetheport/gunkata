@@ -26,7 +26,7 @@ Homepage = "https://github.com/theskyabovetheport/gunkata"
 Repository = "https://github.com/theskyabovetheport/gunkata"
 
 [project.scripts]
-gunkata = "gunkata.main:main"
+gunkata = "gunkata.cli.main:main"
 
 [dependency-groups]
 dev = ["pytest>=8.3"]

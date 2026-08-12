@@ -101,16 +101,38 @@ Tools to improve security research workflows for Android devices
 # CLI
 
 - **The CLI is built on Typer, exposed as the single `gunkata` console script**
-  (`gunkata.cli.main:main`). One shared `app`; new commands register on it, never a
-  second Typer app or a second entry point.
+  (`gunkata.cli.main:main`). One shared `app`, defined once in `gunkata/cli/app.py`;
+  every command module imports it and registers on it, never a second Typer
+  app or a second entry point.
+- **`gunkata/cli/` holds one module per command** (`addr.py`, `procmaps.py`,
+  ...), named for the command. A command that is itself a group of
+  subcommands (`mem read`/`mem write`) gets one module for the group, since
+  its subcommands share a sub-app and helpers. Infrastructure more than one
+  command needs — completion (`completion.py`), fzf picking (`fzf.py`), tty
+  detection (`tty.py`) — gets its own shared module; a command module imports
+  what it needs by name so tests can monkeypatch it on that command's own
+  namespace.
 - **A command body is presentation only** — parse args, call into
   `gunkata.core`, render the result. No logic in the command; that lives in
   core.
 - **Marshalling user-facing syntax is a CLI concern, not core's.** Parsing a
   CLI-specific string format — an address expression, a name resolved to a
-  pid — into the plain value a core class's method takes lives in `main.py`.
-  A core class stays a lean API: its methods take resolved values (`int`,
-  `bytes`, a real object), never a string a user typed at it.
+  pid — into the plain value a core class's method takes lives in the command's
+  own module under `gunkata/cli/`. A core class stays a lean API: its methods
+  take resolved values (`int`, `bytes`, a real object), never a string a user
+  typed at it.
+
+## Adding a command
+
+1. Create `gunkata/cli/<command>.py`; `from gunkata.cli.app import app`, define
+   the function, decorate with `@app.command()`.
+2. Import shared infrastructure (`completion.complete_process_name`,
+   `fzf.fzf_pick_pid`, `tty.stdout_is_tty`/`stdin_is_tty`) by name, not the
+   whole module, so a test can monkeypatch the command module's own reference.
+3. Register the module in `gunkata/cli/main.py`'s import list — a command with
+   no consumer there never runs; Typer only sees modules main.py imports.
+4. Add `tests/cli/test_<command>.py`, mirroring the module it tests (see
+   `test_addr.py`, `test_procmaps.py`).
 
 # Python Code Conventions
 
@@ -131,8 +153,8 @@ Tools to improve security research workflows for Android devices
 - One class per module. Exception: dataclasses tightly coupled to the class —
   the schemas it directly consumes or produces.
 - **`__init__.py` holds no logic** — a package docstring only, at most re-exports
-  of names defined in sibling modules. Code lives in a named module (a CLI's
-  in `main.py`), never in the package marker.
+  of names defined in sibling modules. Code lives in a named module (a
+  command's own module under `gunkata/cli/`), never in the package marker.
 - Schema vs processor: a data schema goes in `types.py`; a processor gets its
   own module. Schemas mirror dependency structure — if B exists only because
   of A, nest B under A.
