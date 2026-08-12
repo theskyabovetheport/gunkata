@@ -126,25 +126,21 @@ class Shell:
             ShellError: The device command failed.
 
         Design:
-            Written to a sibling temp file and published with os.link only on
-            success, then the temp file is dropped. A failed transfer leaves
-            nothing at lpath: no 0-byte file that could be mistaken for an
-            empty remote file, and no leftover that would fail a retry with
-            FileExistsError before the retry even starts.
+            Written directly to lpath, not staged through a temp file. A
+            transfer that fails partway leaves a partial file at lpath rather
+            than nothing; the caller is expected to remove and retry rather
+            than trust a partial result.
         """
+        if os.path.exists(lpath):
+            raise FileExistsError(lpath)
         command = f"cat {dpath}"
-        tmp_path = f"{lpath}.gunkata-partial"
-        try:
-            with open(tmp_path, "wb") as fd:
-                cp = self._adb(
-                    ["shell", self._su(command)],
-                    stdout=fd,
-                    stderr=subprocess.PIPE,
-                )
-            self._raise_if_failed(command, cp)
-            os.link(tmp_path, lpath)
-        finally:
-            os.remove(tmp_path)
+        with open(lpath, "wb") as fd:
+            cp = self._adb(
+                ["shell", self._su(command)],
+                stdout=fd,
+                stderr=subprocess.PIPE,
+            )
+        self._raise_if_failed(command, cp)
 
     def push_file(self, dpath: str, lpath: str, inherit_owner: bool = True):
         command = f"cat >{dpath}"
