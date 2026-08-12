@@ -2,7 +2,9 @@
 
 import logging
 import re
+import threading
 from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from enum import IntEnum
 
@@ -82,6 +84,9 @@ class Logcat:
             records on a device that has been up a while.
         follow: Keep yielding records as the device writes them, rather than
             stopping at the end of what the buffer already holds.
+        tags: Minimum level to let through for each named tag, for example
+            ``{"ActivityManager": Level.W}``. Tags not listed are silenced.
+            None keeps every tag, which is logcat's own default.
 
     Raises:
         ValueError: tail is below one, which logcat cannot express.
@@ -111,12 +116,19 @@ class Logcat:
     )
     _MARKER = re.compile(r"^-+ beginning of \S+$")
 
-    def __init__(self, shell: Shell, tail: int | None = 1, follow: bool = True):
+    def __init__(
+        self,
+        shell: Shell,
+        tail: int | None = 1,
+        follow: bool = True,
+        tags: dict[str, Level] | None = None,
+    ):
         if tail is not None and tail < 1:
             raise ValueError(f"tail must be at least 1, got {tail}")
         self._shell = shell
         self._tail = tail
         self._follow = follow
+        self._tags = tags
 
     def __iter__(self) -> Iterator[LogcatEntry]:
         """Yield each record the device's log buffers produce.
@@ -137,6 +149,47 @@ class Logcat:
                 if entry is not None:
                     yield entry
 
+    @contextmanager
+    def follow_for(self, timeout_seconds: float) -> Iterator[Iterator[LogcatEntry]]:
+        """Iterate records for at most timeout_seconds, then stop on its own.
+
+        Args:
+            timeout_seconds: Wall-clock budget for the whole stream, starting
+                when the ``with`` block is entered.
+
+        Yields:
+            An iterator over records, in the order the device wrote them. It
+            ends on its own once the budget elapses, whether or not a reader
+            is blocked waiting for the next record.
+
+        Raises:
+            ValueError: timeout_seconds is not positive, which would starve
+                logcat before it could produce a single record.
+            OSError: The adb executable is not on PATH.
+            ShellError: logcat exited non-zero on its own -- an unreadable
+                buffer, or a device that went away.
+
+        Design:
+            A ``threading.Timer`` closes the stream once the budget elapses.
+            A context manager rather than a plain iterator so that timer is
+            guaranteed to be cancelled -- on early exit, an exception, or the
+            reader simply not consuming the whole stream -- rather than firing
+            after the caller has already moved on.
+        """
+        if timeout_seconds <= 0:
+            raise ValueError(f"timeout_seconds must be positive, got {timeout_seconds}")
+        with self._shell.stream(self.command()) as stream:
+            timer = threading.Timer(timeout_seconds, stream.close)
+            timer.start()
+            try:
+                yield (
+                    entry
+                    for line in stream
+                    if (entry := self._parse(line)) is not None
+                )
+            finally:
+                timer.cancel()
+
     def command(self) -> str:
         """Build the logcat command line this spec runs on the device.
 
@@ -148,12 +201,20 @@ class Logcat:
             ``-t`` implies ``-d`` and ``-T`` does not, so mapping tail onto
             whichever matches ``follow`` leaves ``follow`` as the only option
             deciding whether iteration ever ends.
+
+            The filterspec is appended last and ends with ``*:S`` when tags
+            are given, so the named tags are the only ones logcat lets
+            through -- omitting the catch-all would leave every other tag at
+            its default level instead of silencing them.
         """
         parts = ["logcat", "-v", "threadtime"]
         if self._tail is not None:
             parts += ["-T" if self._follow else "-t", str(self._tail)]
         elif not self._follow:
             parts.append("-d")
+        if self._tags:
+            parts += [f"{tag}:{level}" for tag, level in self._tags.items()]
+            parts.append("*:S")
         return " ".join(parts)
 
     def _parse(self, line: str) -> LogcatEntry | None:

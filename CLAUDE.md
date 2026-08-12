@@ -90,11 +90,6 @@ Tools to improve security research workflows for Android devices
 - Never configure a handler, formatter, or level inside a module.
   Configuration happens exactly once, in the CLI entry point, before any
   subcommand runs. A module logs; the application configures.
-- **The message argument is always a literal, constant string** — never an
-  f-string, never built from a variable. All variable data goes through
-  `extra={...}`: `logger.info("round started", extra={"round_id": rid})`.
-  A literal message is a stable, groupable event id; `extra=` keeps values as
-  structured data. This is a discipline rule Python cannot check.
 - Use the logger hierarchy for selective verbosity
   (`logging.getLogger("<package>.<module>").setLevel(...)`); never invent a
   parallel mechanism.

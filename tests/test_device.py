@@ -36,7 +36,7 @@ def test_wait_for_state_sends_the_state_value():
 def test_shell_returns_a_shell_bound_to_the_given_user_and_the_device_su_binary():
     shell = Device(_SpyAdb(), su_binary="custom-su").shell(user="root")
     assert shell.user == "root"
-    assert shell.su_binary == "custom-su"
+    assert shell.su.name == "custom-su"
 
 
 @pytest.mark.emulator

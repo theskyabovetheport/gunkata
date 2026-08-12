@@ -12,7 +12,7 @@ def device(serial: str | None = None):
     return Device(Adb(serial))
 
 
-def shell(user: str | None = None, su_binary: str = "su") -> Shell:
+def shell(user: str | None = None, su_binary: str | None = None) -> Shell:
     return Device(Adb(), su_binary=su_binary).shell(user=user)
 
 

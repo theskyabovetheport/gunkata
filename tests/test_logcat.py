@@ -137,6 +137,14 @@ def test_not_following_without_a_tail_dumps_the_whole_buffer():
     assert shell.commands == ["logcat -v threadtime -d"]
 
 
+def test_tags_filter_to_the_named_levels_and_silence_everything_else():
+    shell = _FakeShell()
+    list(Logcat(shell, tags={"ActivityManager": Level.W, "art": Level.E}))
+    assert shell.commands == [
+        "logcat -v threadtime -T 1 ActivityManager:W art:E *:S"
+    ]
+
+
 def test_a_tail_below_one_is_refused():
     """logcat clamps -T 0 to 1 and warns on stderr while still exiting 0, so the
     warning would be swallowed. Refusing is the only loud option."""
@@ -150,6 +158,49 @@ def test_iterating_twice_starts_a_fresh_logcat():
     spec = Logcat(shell)
     assert list(spec) == list(spec)
     assert len(shell.commands) == 2
+
+
+class _BlockingStream:
+    """A stream that never yields a line on its own; only close() ends it."""
+
+    def __init__(self):
+        self._closed = threading.Event()
+
+    def __enter__(self) -> "_BlockingStream":
+        return self
+
+    def __exit__(self, *_exc_info) -> None:
+        self.close()
+
+    def close(self) -> None:
+        self._closed.set()
+
+    def __iter__(self):
+        self._closed.wait()
+        return iter(())
+
+
+class _BlockingShell:
+    """Stands in for a Shell whose stream blocks forever, like a live tail with no traffic."""
+
+    def __init__(self):
+        self.commands: list[str] = []
+
+    def stream(self, command: str) -> _BlockingStream:
+        self.commands.append(command)
+        return _BlockingStream()
+
+
+def test_follow_for_stops_a_stream_blocked_waiting_for_a_line_that_never_comes():
+    """The whole point of follow_for: the timeout must end the read, not just decorate it."""
+    with Logcat(_BlockingShell()).follow_for(0.05) as records:
+        assert list(records) == []
+
+
+def test_follow_for_refuses_a_non_positive_timeout():
+    with pytest.raises(ValueError):
+        with Logcat(_FakeShell()).follow_for(0):
+            pass
 
 
 @pytest.mark.emulator

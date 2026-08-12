@@ -55,5 +55,5 @@ class ShellResult:
 
     @property
     def output(self) -> str:
-        """Both streams, stdout first, as a terminal would have interleaved them."""
-        return f"{self.stdout}\n{self.stderr}"
+        """Both streams concatenated, stdout first, with no separator inserted."""
+        return f"{self.stdout}{self.stderr}"

@@ -1,13 +1,16 @@
 [project]
 name = "gunkata"
-version = "0.1.0"
+version = "0.2.0"
 description = "Tools to improve security research workflows for Android devices"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Finn", email = "theskyabovetheport@bratanmail.com" }]
-requires-python = ">=3.13"
-dependencies = ["typer>=0.12"]
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic-settings>=2.15.0",
+    "typer>=0.12",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",

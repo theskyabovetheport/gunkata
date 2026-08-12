@@ -11,6 +11,7 @@ import typer
 
 from gunkata.adb import Adb, AdbError
 from gunkata.device import Device
+from gunkata.settings import SuBinary
 from gunkata.shell import Shell
 
 app = typer.Typer(
@@ -101,7 +102,9 @@ def _complete_remote_path(ctx, args, incomplete: str) -> list[str]:
         ls_key = f"ls:{dirname or '.'}"
         output = _completion_cache_get(ls_key)
         if output is None:
-            listing = Shell(adb, user=user, su_binary="su")(f"ls -1p {dirname or '.'}")
+            listing = Shell(adb, user=user, su=SuBinary(name="su"))(
+                f"ls -1p {dirname or '.'}"
+            )
             if not listing.ok:
                 return []
             output = listing.stdout
@@ -123,30 +126,13 @@ def shell(
     ),
 ) -> None:
     """Shell via su. With a command, run it and exit; with none, attach interactively."""
-    target = Device(Adb())
-    cd = f"cd '{directory}' && " if directory else ""
+    device_shell = Device(Adb()).shell(user=user)
     if command:
-        result = target.shell(user=user)(f"{cd}{' '.join(command)}")
+        cd = f"cd '{directory}' && " if directory else ""
+        result = device_shell(f"{cd}{' '.join(command)}")
         typer.echo(result.output, nl=False)
         raise typer.Exit(result.rc)
-    resolved_user = user if user is not None else ("root" if target.has_su else "shell")
-    if directory:
-        os.execvp(
-            "adb",
-            [
-                "adb",
-                "-s",
-                target.serial,
-                "shell",
-                "-t",
-                "su",
-                resolved_user,
-                "sh",
-                "-c",
-                f"'{cd}exec sh'",
-            ],
-        )
-    os.execvp("adb", ["adb", "-s", target.serial, "shell", "-t", "su", resolved_user])
+    device_shell.execvp_sh(directory)
 
 
 @app.command()
