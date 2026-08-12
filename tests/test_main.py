@@ -181,6 +181,7 @@ def test_procmaps_with_no_flags_launches_fzf_and_reads_the_picked_pid(monkeypatc
         ps_output="USER  PID  PPID S NAME\nu0_a1 1234 567  S com.example.app\n",
     )
     monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(main, "_stdout_is_tty", lambda: True)
     monkeypatch.setattr(main.shutil, "which", lambda name: "/usr/bin/fzf")
     monkeypatch.setattr(
         main.subprocess,
@@ -195,10 +196,23 @@ def test_procmaps_with_no_flags_launches_fzf_and_reads_the_picked_pid(monkeypatc
 def test_procmaps_with_no_flags_exits_when_fzf_is_missing(monkeypatch):
     fake = _ProcmapsFakeAdb()
     monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(main, "_stdout_is_tty", lambda: True)
     monkeypatch.setattr(main.shutil, "which", lambda name: None)
     result = CliRunner().invoke(main.app, ["procmaps"])
     assert result.exit_code == 1
     assert "fzf" in result.output
+
+
+def test_procmaps_with_no_flags_refuses_to_fuzzy_pick_when_stdout_is_not_a_tty(
+    monkeypatch,
+):
+    """Piped/redirected stdout must never trigger fzf; -p/-P are the only way in."""
+    fake = _ProcmapsFakeAdb()
+    monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(main, "_stdout_is_tty", lambda: False)
+    result = CliRunner().invoke(main.app, ["procmaps"])
+    assert result.exit_code == 2
+    assert "tty" in result.output
 
 
 def test_pidof_prints_every_pid_matching_the_given_name(monkeypatch):

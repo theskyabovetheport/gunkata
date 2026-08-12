@@ -179,6 +179,18 @@ def pull(
     Device(Adb()).shell(user=user).pull_file(dpath, lpath)
 
 
+def _stdout_is_tty() -> bool:
+    """Whether stdout is a terminal.
+
+    Design:
+        A seam for tests: Typer's CliRunner replaces ``sys.stdout`` for the
+        duration of an invocation, so a test can't patch the real object
+        beforehand and have it take effect -- it patches this function
+        instead.
+    """
+    return sys.stdout.isatty()
+
+
 @app.command()
 def ps() -> None:
     """List the device's running processes.
@@ -189,7 +201,7 @@ def ps() -> None:
         that shift with the data -- when it's piped elsewhere.
     """
     entries = Device(Adb()).ps().entries()
-    if sys.stdout.isatty():
+    if _stdout_is_tty():
         pid_width = max([len("PID")] + [len(str(entry.pid)) for entry in entries])
         typer.echo(f"{'PID':<{pid_width}}  NAME")
         for entry in entries:
@@ -242,18 +254,27 @@ def procmaps(
 ) -> None:
     """Print /proc/<pid>/maps to stdout.
 
-    With neither -p nor -P, fuzzy-pick the process via fzf.
+    With neither -p nor -P, fuzzy-pick the process via fzf -- only when
+    stdout is a terminal; maps content and fzf's own picker would otherwise
+    both fight over whatever stdout was redirected to.
 
     Raises:
         typer.Exit: Both -p and -P were given; -P matched zero or more than
             one process; the resolved pid has no /proc entry; or neither was
-            given and fzf is missing or the picker was exited without a pick.
+            given and stdout is not a tty, fzf is missing, or the picker was
+            exited without a pick.
     """
     if pid is not None and name is not None:
         typer.echo("pass at most one of -p/-P", err=True)
         raise typer.Exit(2)
     device = Device(Adb())
     if pid is None and name is None:
+        if not _stdout_is_tty():
+            typer.echo(
+                "refusing to fuzzy-pick a process: stdout is not a tty; pass -p or -P",
+                err=True,
+            )
+            raise typer.Exit(2)
         pid = _fzf_pick_pid(device.ps().entries())
         if pid is None:
             raise typer.Exit(1)
