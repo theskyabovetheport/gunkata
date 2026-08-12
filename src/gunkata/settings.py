@@ -2,8 +2,6 @@
 because these read the environment on construction rather than being handed
 their values by whatever builds them."""
 
-import os
-
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -44,23 +42,20 @@ class SuBinary(BaseSettings):
     )
 
     @classmethod
-    def for_device(cls, serial: str, name: str | None = None) -> "SuBinary":
-        """Resolve one device's su binary.
+    def for_device(cls, name: str | None = None) -> "SuBinary":
+        """Resolve a device's su binary.
 
         Args:
-            serial: The device's serial, checked for its own
-                ``GUNKATA_DEVICE_SU_BINARY_<serial>`` override before falling
-                back to the name every device shares.
-            name: Take this name over any environment resolution -- an
+            name: Take this name over the environment-resolved default -- an
                 explicit constructor argument a caller already gave.
 
         Returns:
             The quirks every device shares, with name resolved by priority:
-            ``name``, then this device's own override, then the shared one.
+            ``name``, then the environment default.
         """
         resolved = cls()
         if name is None:
-            name = os.environ.get(f"GUNKATA_DEVICE_SU_BINARY_{serial}", resolved.name)
+            return resolved
         return resolved.model_copy(update={"name": name})
 
     def wrap(self, command: str, user: str | None) -> str:

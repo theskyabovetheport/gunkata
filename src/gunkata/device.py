@@ -20,7 +20,7 @@ class Device:
 
     def __init__(self, adb: Adb, su_binary: str | None = None):
         self._adb = adb
-        self._su = SuBinary.for_device(adb.serial, su_binary)
+        self._su = SuBinary.for_device(su_binary)
         self._has_su = None
 
     @property
