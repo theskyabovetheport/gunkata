@@ -36,21 +36,26 @@ class _BrokenAdb:
 
 
 def test_completes_nested_path(monkeypatch):
+    """A directory candidate is typed "dir" -- not bare "plain" -- so the shell
+    skips the trailing space and lets the user tab further into it."""
     monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("tmp/\nfoo.txt\n"))
     results = completion.complete_remote_path(None, [], "/data/local/")
-    assert results == ["/data/local/tmp/", "/data/local/foo.txt"]
+    assert [(r.value, r.type) for r in results] == [
+        ("/data/local/tmp/", "dir"),
+        ("/data/local/foo.txt", "file"),
+    ]
 
 
 def test_completes_root_path(monkeypatch):
     monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("data/\nsdcard/\n"))
     results = completion.complete_remote_path(None, [], "/")
-    assert results == ["/data/", "/sdcard/"]
+    assert [r.value for r in results] == ["/data/", "/sdcard/"]
 
 
 def test_completes_relative_path(monkeypatch):
     monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("a.txt\nb.txt\n"))
     results = completion.complete_remote_path(None, [], "")
-    assert results == ["a.txt", "b.txt"]
+    assert [r.value for r in results] == ["a.txt", "b.txt"]
 
 
 def test_returns_empty_on_ls_failure(monkeypatch):
@@ -70,7 +75,7 @@ def test_second_call_for_same_dir_hits_cache_not_the_device(monkeypatch):
     monkeypatch.setattr(completion, "Adb", lambda *a, **k: fake)
     first = completion.complete_remote_path(None, [], "/data/local/t")
     second = completion.complete_remote_path(None, [], "/data/local/tm")
-    assert first == second == ["/data/local/tmp/"]
+    assert [r.value for r in first] == [r.value for r in second] == ["/data/local/tmp/"]
     assert fake.su_check_calls == 1
     assert fake.ls_calls == 1
 
@@ -120,4 +125,4 @@ def test_process_name_completion_hits_cache_not_the_device(monkeypatch):
 def test_completes_against_real_device():
     """/data/local/tmp is a standard Android writable dir; must appear when completing its prefix."""
     results = completion.complete_remote_path(None, [], "/data/local/tm")
-    assert any(r.startswith("/data/local/tmp") for r in results)
+    assert any(r.value.startswith("/data/local/tmp") for r in results)

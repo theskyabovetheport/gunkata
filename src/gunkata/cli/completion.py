@@ -13,6 +13,11 @@ import tempfile
 import time
 from pathlib import Path
 
+# typer vendors click as typer._click and doesn't re-export CompletionItem
+# publicly; this is the only path to it given the project depends on typer
+# alone, not click.
+from typer._click.shell_completion import CompletionItem
+
 from gunkata.adb import Adb
 from gunkata.device import Device
 from gunkata.ps import Ps
@@ -62,7 +67,16 @@ def _cached_serial_and_user() -> tuple[Adb, str]:
     return adb, user
 
 
-def complete_remote_path(ctx, args, incomplete: str) -> list[str]:
+def complete_remote_path(ctx, args, incomplete: str) -> list[CompletionItem]:
+    """Complete a remote path against `ls -1p` of its containing directory.
+
+    Design:
+        Candidates carry type="dir"/"file", not bare strings: the shell
+        completion scripts Typer/Click generate use that marker to skip the
+        trailing space they'd otherwise insert after a completed value, which
+        is what lets a directory completion (already ending in "/") be
+        tabbed into further instead of ending the argument.
+    """
     try:
         slash = incomplete.rfind("/")
         if slash == -1:
@@ -85,7 +99,11 @@ def complete_remote_path(ctx, args, incomplete: str) -> list[str]:
             output = listing.stdout
             _completion_cache_set(ls_key, output)
 
-        return [f"{prefix}{name}" for name in output.splitlines() if name]
+        return [
+            CompletionItem(f"{prefix}{name}", type="dir" if name.endswith("/") else "file")
+            for name in output.splitlines()
+            if name
+        ]
     except Exception:
         return []
 
