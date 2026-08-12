@@ -4,7 +4,7 @@ import sys
 
 import typer
 
-from gunkata.adb import Adb
+from gunkata.adb import Adb, AdbFactory
 from gunkata.cli.app import app
 from gunkata.common.paths import Paths
 from gunkata.device_config import ListConfig, ListConfigError
@@ -34,7 +34,7 @@ def _roster() -> DeviceRoster:
     except ListConfigError as exc:
         typer.echo(f"{paths.list_config_path}: {exc}", err=True)
         raise typer.Exit(1)
-    return DeviceRoster(list_config, DeviceInfoStore(paths))
+    return DeviceRoster(list_config, DeviceInfoStore(paths), AdbFactory())
 
 
 @device_app.command("list")

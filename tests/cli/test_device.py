@@ -3,7 +3,6 @@ import subprocess
 import pytest
 from typer.testing import CliRunner
 
-from gunkata import device_roster
 from gunkata.adb import AdbDeviceEntry
 from gunkata.cli import device  # noqa: F401 -- imported for its command-registration side effect
 from gunkata.cli.app import app
@@ -32,6 +31,16 @@ class _FakeAdb:
         return _FakeAdb._entries
 
 
+class _FakeAdbFactory:
+    """Stands in for gunkata.adb.AdbFactory, building _FakeAdb instead of Adb."""
+
+    def __call__(self, serial: str | None = None) -> _FakeAdb:
+        return _FakeAdb(serial)
+
+    def list_devices(self):
+        return _FakeAdb.list_devices()
+
+
 def _cp(stdout: str, returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout, "")
 
@@ -48,7 +57,7 @@ def fake_adb(monkeypatch):
     _FakeAdb._shell_responses = {
         ("emulator-5554", "getprop"): _cp("[ro.product.model]: [Pixel 4]\n")
     }
-    monkeypatch.setattr(device_roster, "Adb", _FakeAdb)
+    monkeypatch.setattr(device, "AdbFactory", _FakeAdbFactory)
     monkeypatch.setattr(device, "Adb", _FakeAdb)
     return _FakeAdb
 
@@ -64,7 +73,7 @@ def test_list_renders_the_default_column_alongside_the_fixed_ones(fake_adb):
 def test_list_reports_no_devices_without_erroring(monkeypatch):
     _FakeAdb._entries = []
     _FakeAdb._shell_responses = {}
-    monkeypatch.setattr(device_roster, "Adb", _FakeAdb)
+    monkeypatch.setattr(device, "AdbFactory", _FakeAdbFactory)
     result = CliRunner().invoke(app, ["device", "list"])
     assert result.exit_code == 0
     assert "no adb devices" in result.output
@@ -92,7 +101,7 @@ def test_select_exits_on_non_numeric_input(fake_adb):
 def test_select_exits_with_no_devices(monkeypatch):
     _FakeAdb._entries = []
     _FakeAdb._shell_responses = {}
-    monkeypatch.setattr(device_roster, "Adb", _FakeAdb)
+    monkeypatch.setattr(device, "AdbFactory", _FakeAdbFactory)
     result = CliRunner().invoke(app, ["device", "select"])
     assert result.exit_code == 1
 

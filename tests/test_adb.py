@@ -2,7 +2,7 @@ import subprocess
 
 import pytest
 
-from gunkata.adb import Adb, AdbError
+from gunkata.adb import Adb, AdbError, AdbFactory
 
 
 @pytest.fixture(autouse=True)
@@ -111,6 +111,20 @@ def test_popen_builds_the_same_device_argv_as_a_blocking_call(monkeypatch):
     adb.popen(["shell", "id"])
 
     assert spawned == [["adb", "-s", "emulator-5554", "shell", "id"]] * 2
+
+
+def test_adb_factory_call_builds_an_adb_scoped_to_the_given_serial():
+    factory = AdbFactory()
+    assert factory("emulator-5554").serial == "emulator-5554"
+
+
+def test_adb_factory_list_devices_delegates_to_adb(monkeypatch):
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        _fake_devices_output("List of devices attached\nemulator-5554\tdevice\n"),
+    )
+    assert AdbFactory().list_devices() == Adb.list_devices()
 
 
 @pytest.mark.emulator

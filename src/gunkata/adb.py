@@ -93,3 +93,21 @@ class Adb:
         if len(serials) > 1:
             raise AdbError(f"multiple adb devices connected; pass a serial explicitly")
         return serials[0]
+
+
+class AdbFactory:
+    """Builds Adb instances and lists adb-visible devices.
+
+    Design:
+        The injectable seam for a caller that fans out over more than one
+        device -- one Adb per serial -- rather than being bound to a single
+        instance the way most callers are: it takes an AdbFactory instead of
+        importing Adb itself, so a test can substitute one without patching
+        a name inside the module under test.
+    """
+
+    def __call__(self, serial: str | None = None) -> Adb:
+        return Adb(serial)
+
+    def list_devices(self) -> list[AdbDeviceEntry]:
+        return Adb.list_devices()

@@ -10,7 +10,7 @@ reached renders "-" in its own cells, same as the ledger tool's `_field`/
 import re
 import subprocess
 
-from gunkata.adb import Adb, AdbDeviceEntry
+from gunkata.adb import AdbDeviceEntry, AdbFactory
 from gunkata.device_config import Getter, ListConfig
 from gunkata.device_info import DeviceInfo, DeviceInfoStore
 
@@ -25,11 +25,18 @@ class DeviceRoster:
     Args:
         list_config: The extra, user-configured columns to append.
         info_store: Where each row's NAME/TAGS cells come from.
+        adb_factory: Builds the Adb this fans out over, one per serial.
     """
 
-    def __init__(self, list_config: ListConfig, info_store: DeviceInfoStore):
+    def __init__(
+        self,
+        list_config: ListConfig,
+        info_store: DeviceInfoStore,
+        adb_factory: AdbFactory | None = None,
+    ):
         self._list_config = list_config
         self._info_store = info_store
+        self._adb_factory = adb_factory or AdbFactory()
 
     def header(self) -> list[str]:
         """Returns: SERIAL, NAME, TAGS, STATE, then each configured column's name."""
@@ -37,7 +44,7 @@ class DeviceRoster:
 
     def rows(self) -> list[list[str]]:
         """Returns: one row per `adb devices` entry, in adb's own order."""
-        return [self._row(entry) for entry in Adb.list_devices()]
+        return [self._row(entry) for entry in self._adb_factory.list_devices()]
 
     def render(self, numbered: bool = False) -> str:
         """Render header and rows as an aligned table.
@@ -96,8 +103,7 @@ class DeviceRoster:
             return "-"
         return self._cell(completed.stdout)
 
-    @staticmethod
-    def _run(serial: str, args: list[str]) -> subprocess.CompletedProcess | None:
+    def _run(self, serial: str, args: list[str]) -> subprocess.CompletedProcess | None:
         """Run one adb shell command, swallowing transport failures as "unreachable".
 
         Design:
@@ -108,7 +114,7 @@ class DeviceRoster:
             stdin out from under `device select`'s own prompt.
         """
         try:
-            return Adb(serial)(
+            return self._adb_factory(serial)(
                 args,
                 capture_output=True,
                 text=True,

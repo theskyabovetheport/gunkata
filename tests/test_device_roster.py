@@ -1,6 +1,5 @@
 import subprocess
 
-from gunkata import device_roster
 from gunkata.adb import AdbDeviceEntry
 from gunkata.common.paths import Paths
 from gunkata.device_config import ListConfig
@@ -34,20 +33,31 @@ class _FakeAdb:
         return _FakeAdb._entries
 
 
+class _FakeAdbFactory:
+    """Stands in for gunkata.adb.AdbFactory, building _FakeAdb instead of Adb."""
+
+    def __call__(self, serial: str) -> _FakeAdb:
+        return _FakeAdb(serial)
+
+    def list_devices(self):
+        return _FakeAdb.list_devices()
+
+
 def _cp(stdout: str, returncode: int = 0):
     return subprocess.CompletedProcess([], returncode, stdout, "")
 
 
-def _configure(monkeypatch, entries, shell_responses):
+def _configure(entries, shell_responses):
     _FakeAdb._entries = entries
     _FakeAdb._shell_responses = shell_responses
     _FakeAdb.getprop_calls = []
-    monkeypatch.setattr(device_roster, "Adb", _FakeAdb)
 
 
 def _roster(tmp_path, config_body: str) -> DeviceRoster:
     list_config = ListConfig.parse(config_body)
-    return DeviceRoster(list_config, DeviceInfoStore(Paths(root=tmp_path)))
+    return DeviceRoster(
+        list_config, DeviceInfoStore(Paths(root=tmp_path)), _FakeAdbFactory()
+    )
 
 
 _ONE_GETPROP_COLUMN = "columns:\n  - name: MODEL\n    getprop: ro.product.model\n"
@@ -63,9 +73,8 @@ def test_header_lists_fixed_columns_then_configured_ones(tmp_path):
     assert roster.header() == ["SERIAL", "NAME", "TAGS", "STATE", "MODEL"]
 
 
-def test_row_resolves_a_getprop_column(monkeypatch, tmp_path):
+def test_row_resolves_a_getprop_column(tmp_path):
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "device")],
         {
             ("emulator-5554", "getprop"): _cp(
@@ -77,12 +86,9 @@ def test_row_resolves_a_getprop_column(monkeypatch, tmp_path):
     assert roster.rows() == [["emulator-5554", "-", "-", "device", "Pixel 4"]]
 
 
-def test_getprop_dump_happens_once_per_device_regardless_of_column_count(
-    monkeypatch, tmp_path
-):
+def test_getprop_dump_happens_once_per_device_regardless_of_column_count(tmp_path):
     """N configured getprop columns must cost one adb round trip, not N."""
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "device")],
         {
             ("emulator-5554", "getprop"): _cp(
@@ -96,11 +102,8 @@ def test_getprop_dump_happens_once_per_device_regardless_of_column_count(
     assert _FakeAdb.getprop_calls == ["emulator-5554"]
 
 
-def test_shell_column_runs_its_own_command_and_flattens_multiline_output(
-    monkeypatch, tmp_path
-):
+def test_shell_column_runs_its_own_command_and_flattens_multiline_output(tmp_path):
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "device")],
         {("emulator-5554", "uptime"): _cp(" up  4:10,\n0 users\n")},
     )
@@ -108,10 +111,9 @@ def test_shell_column_runs_its_own_command_and_flattens_multiline_output(
     assert roster.rows() == [["emulator-5554", "-", "-", "device", "up 4:10, 0 users"]]
 
 
-def test_shell_column_output_is_truncated_past_forty_characters(monkeypatch, tmp_path):
+def test_shell_column_output_is_truncated_past_forty_characters(tmp_path):
     long_output = "x" * 50
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "device")],
         {("emulator-5554", "dump"): _cp(long_output)},
     )
@@ -121,12 +123,9 @@ def test_shell_column_output_is_truncated_past_forty_characters(monkeypatch, tmp
     assert cell.endswith("…")
 
 
-def test_unreachable_device_renders_dash_for_every_configured_column(
-    monkeypatch, tmp_path
-):
+def test_unreachable_device_renders_dash_for_every_configured_column(tmp_path):
     """An offline/unauthorized device must not blow up the whole table."""
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "offline")],
         {("emulator-5554", "getprop"): _cp("", returncode=1)},
     )
@@ -134,26 +133,24 @@ def test_unreachable_device_renders_dash_for_every_configured_column(
     assert roster.rows() == [["emulator-5554", "-", "-", "offline", "-"]]
 
 
-def test_name_and_tags_come_from_the_info_store_without_touching_the_device(
-    monkeypatch, tmp_path
-):
+def test_name_and_tags_come_from_the_info_store_without_touching_the_device(tmp_path):
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "device")],
         {("emulator-5554", "getprop"): _cp("[ro.product.model]: [Pixel 4]\n")},
     )
     info_store = DeviceInfoStore(Paths(root=tmp_path))
     info_store.set_name("emulator-5554", "my phone")
     info_store.add_tag("emulator-5554", "rooted")
-    roster = DeviceRoster(ListConfig.parse(_ONE_GETPROP_COLUMN), info_store)
+    roster = DeviceRoster(
+        ListConfig.parse(_ONE_GETPROP_COLUMN), info_store, _FakeAdbFactory()
+    )
     assert roster.rows() == [
         ["emulator-5554", "my phone", "rooted", "device", "Pixel 4"]
     ]
 
 
-def test_render_numbered_prepends_a_one_based_index_column(monkeypatch, tmp_path):
+def test_render_numbered_prepends_a_one_based_index_column(tmp_path):
     _configure(
-        monkeypatch,
         [
             AdbDeviceEntry("emulator-5554", "device"),
             AdbDeviceEntry("emulator-5556", "device"),
@@ -170,9 +167,8 @@ def test_render_numbered_prepends_a_one_based_index_column(monkeypatch, tmp_path
     assert lines[2].split()[0] == "2"
 
 
-def test_render_without_numbered_has_no_index_column(monkeypatch, tmp_path):
+def test_render_without_numbered_has_no_index_column(tmp_path):
     _configure(
-        monkeypatch,
         [AdbDeviceEntry("emulator-5554", "device")],
         {("emulator-5554", "getprop"): _cp("[ro.product.model]: [A]\n")},
     )
