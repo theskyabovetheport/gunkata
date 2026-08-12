@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from gunkata.common.paths import Paths
-from gunkata.deviceinfo import DeviceInfo, DeviceInfoStore
+from gunkata.device_info import DeviceInfo, DeviceInfoStore
 
 
 @pytest.fixture

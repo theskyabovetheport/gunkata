@@ -1,7 +1,7 @@
 """Builds and renders the table `device list`/`device select` show.
 
 Every adb-visible device gets one row: SERIAL, then the locally-known
-identity (NAME, TAGS, STATE), then whatever gunkata.deviceconfig.ListConfig
+identity (NAME, TAGS, STATE), then whatever gunkata.device_config.ListConfig
 declares. Nothing here is fatal to the whole table -- a device that can't be
 reached renders "-" in its own cells, same as the ledger tool's `_field`/
 `_cell` convention for an absent or unreachable value.
@@ -11,8 +11,8 @@ import re
 import subprocess
 
 from gunkata.adb import Adb, AdbDeviceEntry
-from gunkata.deviceconfig import Getter, ListConfig
-from gunkata.deviceinfo import DeviceInfo, DeviceInfoStore
+from gunkata.device_config import Getter, ListConfig
+from gunkata.device_info import DeviceInfo, DeviceInfoStore
 
 _CELL_WIDTH = 40
 _ADB_TIMEOUT = 10.0

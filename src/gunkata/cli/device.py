@@ -7,9 +7,9 @@ import typer
 from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.common.paths import Paths
-from gunkata.deviceconfig import ListConfig, ListConfigError
-from gunkata.deviceinfo import DeviceInfoStore
-from gunkata.deviceroster import DeviceRoster
+from gunkata.device_config import ListConfig, ListConfigError
+from gunkata.device_info import DeviceInfoStore
+from gunkata.device_roster import DeviceRoster
 from gunkata.localedit import EditorNotFoundError, launch, resolve_editor
 
 device_app = typer.Typer(

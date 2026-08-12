@@ -9,7 +9,7 @@ own operator's adb can already reach, so `shell:` stays as the flexibility
 valve, and there is no `builtin:` kind at all. Local device identity (name,
 tags, adb state) isn't something a shell command or a device property could
 produce anyway, so `device list`/`device select` show it as fixed columns
-ahead of anything this file declares -- see gunkata.deviceroster.
+ahead of anything this file declares -- see gunkata.device_roster.
 """
 
 from dataclasses import dataclass

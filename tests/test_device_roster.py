@@ -1,11 +1,11 @@
 import subprocess
 
-from gunkata import deviceroster
+from gunkata import device_roster
 from gunkata.adb import AdbDeviceEntry
 from gunkata.common.paths import Paths
-from gunkata.deviceconfig import ListConfig
-from gunkata.deviceinfo import DeviceInfoStore
-from gunkata.deviceroster import DeviceRoster
+from gunkata.device_config import ListConfig
+from gunkata.device_info import DeviceInfoStore
+from gunkata.device_roster import DeviceRoster
 
 
 class _FakeAdb:
@@ -42,7 +42,7 @@ def _configure(monkeypatch, entries, shell_responses):
     _FakeAdb._entries = entries
     _FakeAdb._shell_responses = shell_responses
     _FakeAdb.getprop_calls = []
-    monkeypatch.setattr(deviceroster, "Adb", _FakeAdb)
+    monkeypatch.setattr(device_roster, "Adb", _FakeAdb)
 
 
 def _roster(tmp_path, config_body: str) -> DeviceRoster:
