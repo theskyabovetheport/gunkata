@@ -8,6 +8,7 @@ from gunkata.addr import AddrLocator
 from gunkata.cli.app import app
 from gunkata.cli.hexaddr import parse_hex_address_expr
 from gunkata.cli.tty import stdin_is_tty
+from gunkata.procmaps_parser import ProcMapsParser
 
 
 @app.command()
@@ -42,9 +43,10 @@ def addr(
         typer.echo(str(exc), err=True)
         raise typer.Exit(2)
     try:
-        locator = AddrLocator(sys.stdin.read())
+        parser = ProcMapsParser(sys.stdin.read())
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
+    locator = AddrLocator(parser)
     locator.locate(target)
     typer.echo(locator.annotated(before=before, after=after), nl=False)

@@ -1,6 +1,12 @@
 import pytest
 
 from gunkata.addr import AddrLocator
+from gunkata.procmaps_parser import ProcMapsParser
+
+
+def _locator(maps_text: str) -> AddrLocator:
+    return AddrLocator(ProcMapsParser(maps_text))
+
 
 # Three real-shaped mappings with a gap between the first two and a gap after
 # the last one -- enough to exercise contained/above/below without a live
@@ -13,17 +19,18 @@ _MAPS = (
 
 
 def test_constructor_rejects_a_line_without_an_address_range():
+    """ProcMapsParser -- not AddrLocator itself -- owns parsing and its ValueError; see procmaps_parser.py."""
     with pytest.raises(ValueError):
-        AddrLocator("not a maps line\n")
+        _locator("not a maps line\n")
 
 
 def test_annotated_is_empty_when_nothing_was_located():
     """Mirrors grep: a pattern that matches nothing yields no output, -A/-B or not."""
-    assert AddrLocator(_MAPS).annotated() == ""
+    assert _locator(_MAPS).annotated() == ""
 
 
 def test_contained_address_gets_offsets_from_both_of_the_mappings_edges():
-    locator = AddrLocator(_MAPS)
+    locator = _locator(_MAPS)
     locator.locate(0x7F0010)
     lines = locator.annotated().splitlines()
     assert lines[0] == (
@@ -38,7 +45,7 @@ def test_address_in_a_gap_annotates_both_bounding_mappings():
     """An address between two mappings notes 'below' on the one before it,
     with its distance past that mapping's end, and 'above' on the one after
     it, with its distance before that mapping's start."""
-    locator = AddrLocator(_MAPS)
+    locator = _locator(_MAPS)
     locator.locate(0x7F1800)  # 0x800 past the first mapping's end, 0x800 before the second's start
     lines = locator.annotated().splitlines()
     assert lines[0] == (
@@ -53,7 +60,7 @@ def test_address_in_a_gap_annotates_both_bounding_mappings():
 
 
 def test_address_before_the_first_mapping_only_annotates_that_mapping():
-    locator = AddrLocator(_MAPS)
+    locator = _locator(_MAPS)
     locator.locate(0x7EFF00)
     lines = locator.annotated().splitlines()
     assert lines[0] == (
@@ -64,7 +71,7 @@ def test_address_before_the_first_mapping_only_annotates_that_mapping():
 
 
 def test_address_after_the_last_mapping_only_annotates_that_mapping():
-    locator = AddrLocator(_MAPS)
+    locator = _locator(_MAPS)
     locator.locate(0x7F5100)
     lines = locator.annotated().splitlines()
     assert lines[1] == "7f2000-7f3000 rw-p 00000000 00:00 0 /lib/libc.so"
@@ -75,7 +82,7 @@ def test_address_after_the_last_mapping_only_annotates_that_mapping():
 
 
 def test_multiple_addresses_on_the_same_mapping_accumulate_notes():
-    locator = AddrLocator(_MAPS)
+    locator = _locator(_MAPS)
     locator.locate(0x7F0010)
     locator.locate(0x7F0020)
     lines = locator.annotated().splitlines()
@@ -86,7 +93,7 @@ def test_multiple_addresses_on_the_same_mapping_accumulate_notes():
 
 
 def test_locate_on_an_empty_listing_is_a_no_op():
-    assert AddrLocator("").annotated() == ""
+    assert _locator("").annotated() == ""
 
 
 # Six mappings so a narrow -A/-B window definitely excludes some lines,
@@ -98,7 +105,7 @@ _WIDE_MAPS = "".join(
 
 
 def test_context_window_excludes_lines_outside_before_and_after():
-    locator = AddrLocator(_WIDE_MAPS)
+    locator = _locator(_WIDE_MAPS)
     locator.locate(0x3000)  # contained in seg3
     lines = locator.annotated(before=1, after=1).splitlines()
     assert lines == [
@@ -109,14 +116,14 @@ def test_context_window_excludes_lines_outside_before_and_after():
 
 
 def test_context_window_of_zero_prints_only_matched_lines():
-    locator = AddrLocator(_WIDE_MAPS)
+    locator = _locator(_WIDE_MAPS)
     locator.locate(0x3000)
     lines = locator.annotated(before=0, after=0).splitlines()
     assert lines == ["3000-4000 r--p 00000000 00:00 0 seg3  // contained +0x0 -0x1000"]
 
 
 def test_distant_matches_are_separated_by_a_dashdash_marker():
-    locator = AddrLocator(_WIDE_MAPS)
+    locator = _locator(_WIDE_MAPS)
     locator.locate(0x0)  # seg0
     locator.locate(0x5000)  # seg5
     lines = locator.annotated(before=0, after=0).splitlines()
@@ -128,7 +135,7 @@ def test_distant_matches_are_separated_by_a_dashdash_marker():
 
 
 def test_overlapping_windows_merge_without_a_separator():
-    locator = AddrLocator(_WIDE_MAPS)
+    locator = _locator(_WIDE_MAPS)
     locator.locate(0x2000)  # seg2
     locator.locate(0x3000)  # seg3, one line after seg2 -- windows touch
     lines = locator.annotated(before=1, after=1).splitlines()
@@ -156,7 +163,7 @@ def test_offset_wraps_to_the_shorter_distance_across_the_canonical_hole():
     other way around the 64-bit address ring -- is ~0x7fffc39d8000. Direction
     still comes from the raw delta's own sign: going the short way round
     doesn't put address on the other side of either edge."""
-    locator = AddrLocator(_CANONICAL_HOLE_MAPS)
+    locator = _locator(_CANONICAL_HOLE_MAPS)
     locator.locate(0x7FFFC2FD7000 + 0x1000)  # exactly vdso's end: the gap starts here
     lines = locator.annotated(before=0, after=0).splitlines()
     assert lines == [
