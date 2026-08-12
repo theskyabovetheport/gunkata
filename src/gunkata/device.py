@@ -89,7 +89,8 @@ class Device:
             An accessor scoped to pid, checked against its live memory map
             on every read and write; see Memory.
         """
-        return Memory(self.shell(user=user), pid)
+        shell = self.shell(user=user)
+        return Memory(shell, pid, ProcMaps(shell))
 
     def edit(self, user: str | None = None, editor: str | None = None) -> Edit:
         """Edit a device file through a local editor, sudoedit-style.

@@ -1,6 +1,7 @@
 import pytest
 
 from gunkata.memory import Memory, UnmappedRangeError
+from gunkata.procmaps import ProcMaps
 from gunkata.types import ShellError
 
 
@@ -38,9 +39,14 @@ _MAPS = (
 )
 
 
+def _memory(**shell_kwargs) -> Memory:
+    shell = _FakeShell(**shell_kwargs)
+    return Memory(shell, pid=1234, procmaps=ProcMaps(shell))
+
+
 def test_read_returns_bytes_for_a_fully_mapped_range():
     shell = _FakeShell(maps=_MAPS, read_result=b"payload")
-    memory = Memory(shell, pid=1234)
+    memory = Memory(shell, pid=1234, procmaps=ProcMaps(shell))
     assert memory.read(0x7F0000000000, 0x7F0000000007) == b"payload"
     assert shell.read_commands == [
         f"dd if=/proc/1234/mem bs=1 skip={0x7F0000000000} count=7"
@@ -48,13 +54,13 @@ def test_read_returns_bytes_for_a_fully_mapped_range():
 
 
 def test_read_raises_value_error_when_end_is_not_after_start():
-    memory = Memory(_FakeShell(maps=_MAPS), pid=1234)
+    memory = _memory(maps=_MAPS)
     with pytest.raises(ValueError):
         memory.read(0x7F0000000010, 0x7F0000000010)
 
 
 def test_read_raises_unmapped_range_error_when_start_is_outside_every_region():
-    memory = Memory(_FakeShell(maps=_MAPS), pid=1234)
+    memory = _memory(maps=_MAPS)
     with pytest.raises(UnmappedRangeError):
         memory.read(0x1, 0x10)
 
@@ -62,20 +68,20 @@ def test_read_raises_unmapped_range_error_when_start_is_outside_every_region():
 def test_read_raises_unmapped_range_error_when_the_range_crosses_a_gap():
     """The range starts inside a mapped region but extends past its end into
     the gap before the next region -- must fail, not silently truncate."""
-    memory = Memory(_FakeShell(maps=_MAPS), pid=1234)
+    memory = _memory(maps=_MAPS)
     with pytest.raises(UnmappedRangeError):
         memory.read(0x7F0000005000, 0x7F0000025000)
 
 
 def test_read_propagates_shell_error_from_the_underlying_dd():
-    memory = Memory(_FakeShell(maps=_MAPS, ok=False), pid=1234)
+    memory = _memory(maps=_MAPS, ok=False)
     with pytest.raises(ShellError):
         memory.read(0x7F0000000000, 0x7F0000000010)
 
 
 def test_write_sends_data_to_a_fully_mapped_range():
     shell = _FakeShell(maps=_MAPS)
-    memory = Memory(shell, pid=1234)
+    memory = Memory(shell, pid=1234, procmaps=ProcMaps(shell))
     memory.write(0x7F0000000000, b"hi")
     assert shell.write_calls == [
         (f"dd of=/proc/1234/mem bs=1 seek={0x7F0000000000} conv=notrunc", b"hi")
@@ -83,26 +89,26 @@ def test_write_sends_data_to_a_fully_mapped_range():
 
 
 def test_write_raises_unmapped_range_error_when_data_would_cross_a_gap():
-    memory = Memory(_FakeShell(maps=_MAPS), pid=1234)
+    memory = _memory(maps=_MAPS)
     with pytest.raises(UnmappedRangeError):
         memory.write(0x7F000000FFF0, b"x" * 20)
 
 
 def test_write_raises_unmapped_range_error_when_start_is_outside_every_region():
-    memory = Memory(_FakeShell(maps=_MAPS), pid=1234)
+    memory = _memory(maps=_MAPS)
     with pytest.raises(UnmappedRangeError):
         memory.write(0x1, b"x")
 
 
 def test_write_raises_value_error_when_data_would_exceed_the_given_end():
-    memory = Memory(_FakeShell(maps=_MAPS), pid=1234)
+    memory = _memory(maps=_MAPS)
     with pytest.raises(ValueError):
         memory.write(0x7F0000000000, b"0123456789", end=0x7F0000000005)
 
 
 def test_write_within_the_given_end_succeeds():
     shell = _FakeShell(maps=_MAPS)
-    memory = Memory(shell, pid=1234)
+    memory = Memory(shell, pid=1234, procmaps=ProcMaps(shell))
     memory.write(0x7F0000000000, b"hi", end=0x7F0000000010)
     assert shell.write_calls == [
         (f"dd of=/proc/1234/mem bs=1 seek={0x7F0000000000} conv=notrunc", b"hi")

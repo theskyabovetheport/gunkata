@@ -37,4 +37,5 @@ def ps() -> Ps:
 
 
 def memory(pid: int) -> Memory:
-    return Memory(shell(), pid)
+    device_shell = shell()
+    return Memory(device_shell, pid, ProcMaps(device_shell))
