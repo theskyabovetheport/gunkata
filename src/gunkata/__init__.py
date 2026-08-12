@@ -1,6 +1,7 @@
 """gunkata: tools to improve security research workflows for Android devices."""
 
 from .adb import Adb
+from .addr import AddrLocator
 from .device import Device
 from .logcat import Level, Logcat, LogcatEntry
 from .procmaps import AmbiguousProcessError, NoSuchProcessError, ProcMaps
