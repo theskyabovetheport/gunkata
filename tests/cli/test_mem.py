@@ -9,33 +9,15 @@ from gunkata.cli import mem
 from gunkata.cli.app import app
 
 
-def test_parse_mem_address_expr_resolves_a_bare_hex_address():
-    assert mem._parse_mem_address_expr("7f0000") == 0x7F0000
-
-
-def test_parse_mem_address_expr_accepts_an_optional_0x_prefix():
-    assert mem._parse_mem_address_expr("0x7f0000") == 0x7F0000
-
-
-def test_parse_mem_address_expr_applies_a_single_offset():
+def test_parse_mem_address_expr_delegates_to_the_shared_parser():
+    """The grammar itself is pinned once, in test_hexaddr.py; this only
+    guards mem's own wiring to it."""
     assert mem._parse_mem_address_expr("0x1000+0x10") == 0x1010
 
 
-def test_parse_mem_address_expr_chains_multiple_offsets_in_order():
-    assert (
-        mem._parse_mem_address_expr("0x1000+0x100-0x10+0x1")
-        == 0x1000 + 0x100 - 0x10 + 0x1
-    )
-
-
-def test_parse_mem_address_expr_rejects_an_empty_expression():
+def test_parse_mem_address_expr_turns_a_parse_failure_into_a_loud_exit():
     with pytest.raises(typer.Exit):
-        mem._parse_mem_address_expr("")
-
-
-def test_parse_mem_address_expr_rejects_a_non_hex_term():
-    with pytest.raises(typer.Exit):
-        mem._parse_mem_address_expr("0x1000+zz")
+        mem._parse_mem_address_expr("not-hex")
 
 
 class _MemFakeAdb:

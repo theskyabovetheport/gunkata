@@ -1,6 +1,5 @@
 """`gunkata mem read`/`gunkata mem write`: process-memory access via /proc/<pid>/mem."""
 
-import re
 import sys
 from pathlib import Path
 
@@ -9,6 +8,7 @@ import typer
 from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.cli.completion import complete_process_name
+from gunkata.cli.hexaddr import parse_hex_address_expr
 from gunkata.device import Device
 from gunkata.memory import UnmappedRangeError
 from gunkata.procmaps import AmbiguousProcessError, NoSuchProcessError
@@ -29,9 +29,6 @@ _MEM_NAME_OPTION = typer.Option(
     help="Target the sole process matching this name.",
     autocompletion=complete_process_name,
 )
-
-_MEM_ADDRESS_TERM = re.compile(r"[+-]?[^+-]+")
-
 
 def _read_stdin_pid() -> int:
     """Read exactly one pid from stdin, as `gunkata pidof` would produce it.
@@ -58,35 +55,16 @@ def _read_stdin_pid() -> int:
 
 
 def _parse_mem_address_expr(expr: str) -> int:
-    """Resolve an ADDR{+-}OFFSET{+-}OFFSET... expression to an integer address.
-
-    Args:
-        expr: A base address in hex, followed by any number of chained
-            +offset/-offset terms, each hex the same way -- e.g. "7f0000",
-            "0x7f0000+0x10", "0x7f0000+0x100-0x10". An "0x" prefix is
-            accepted but not required, matching the bare hex
-            /proc/<pid>/maps prints, so an address copied straight from it
-            needs no editing.
-
-    Returns:
-        The base address with every chained offset applied in order.
+    """Resolve one of mem's -s/-e expressions, or exit loudly if it fails.
 
     Raises:
-        typer.Exit: expr is empty, or a term isn't a valid hex integer.
+        typer.Exit: expr failed to parse; see parse_hex_address_expr.
     """
-    terms = _MEM_ADDRESS_TERM.findall(expr.strip())
-    if not terms:
-        typer.echo(f"empty address expression: {expr!r}", err=True)
-        raise typer.Exit(2)
     try:
-        addr = int(terms[0], 16)
-        for term in terms[1:]:
-            sign = -1 if term[0] == "-" else 1
-            addr += sign * int(term[1:] if term[0] in "+-" else term, 16)
+        return parse_hex_address_expr(expr)
     except ValueError as exc:
-        typer.echo(f"not a valid address expression {expr!r}: {exc}", err=True)
+        typer.echo(str(exc), err=True)
         raise typer.Exit(2)
-    return addr
 
 
 def _hexdump(data: bytes, base: int) -> str:

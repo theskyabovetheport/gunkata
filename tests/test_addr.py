@@ -12,31 +12,6 @@ _MAPS = (
 )
 
 
-def test_parse_address_accepts_a_bare_hex_term():
-    assert AddrLocator.parse_address("0x7f0500") == 0x7F0500
-
-
-def test_parse_address_sums_plus_joined_terms():
-    assert AddrLocator.parse_address("0x7f0000+0x500") == 0x7F0500
-
-
-def test_parse_address_accepts_terms_without_a_0x_prefix():
-    assert AddrLocator.parse_address("7f0000+500") == 0x7F0500
-
-
-def test_parse_address_subtracts_minus_joined_terms():
-    assert AddrLocator.parse_address("0x7f0500-0x500") == 0x7F0000
-
-
-def test_parse_address_mixes_plus_and_minus_terms():
-    assert AddrLocator.parse_address("0x7f0000+0x600-0x100") == 0x7F0500
-
-
-def test_parse_address_rejects_a_non_hex_term():
-    with pytest.raises(ValueError):
-        AddrLocator.parse_address("not-hex")
-
-
 def test_constructor_rejects_a_line_without_an_address_range():
     with pytest.raises(ValueError):
         AddrLocator("not a maps line\n")

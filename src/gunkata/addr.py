@@ -46,35 +46,6 @@ class AddrLocator:
         ]
         self._notes: dict[int, list[str]] = {}
 
-    @staticmethod
-    def parse_address(spec: str) -> int:
-        """Parse a `-a` address expression: hex terms joined by `+` and `-`.
-
-        Args:
-            spec: e.g. ``"7fffc274f000"``, ``"0x7fffc274f000+0x1000"``, or
-                ``"0x7fffc274f000+0x2000-0x1000"``. Each term may carry a
-                ``0x`` prefix or not; a term with no leading sign is added.
-
-        Returns:
-            The address the expression names.
-
-        Raises:
-            ValueError: A term is not valid hex.
-        """
-        total = 0
-        sign = 1
-        for token in re.split(r"([+-])", spec):
-            token = token.strip()
-            if not token:
-                continue
-            if token == "+":
-                sign = 1
-            elif token == "-":
-                sign = -1
-            else:
-                total += sign * int(token, 16)
-        return total
-
     def locate(self, address: int) -> None:
         """Record where address falls, to be rendered by annotated().
 

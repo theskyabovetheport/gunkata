@@ -6,6 +6,7 @@ import typer
 
 from gunkata.addr import AddrLocator
 from gunkata.cli.app import app
+from gunkata.cli.hexaddr import parse_hex_address_expr
 from gunkata.cli.tty import stdin_is_tty
 
 
@@ -36,7 +37,7 @@ def addr(
         )
         raise typer.Exit(1)
     try:
-        target = AddrLocator.parse_address(address)
+        target = parse_hex_address_expr(address)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(2)
