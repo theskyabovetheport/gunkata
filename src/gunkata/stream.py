@@ -128,19 +128,32 @@ class Stream:
         if self._closed:
             return
         self._closed = True
-        if self._process.poll() is None:
-            self._stopped = True
-        self._reap(self._process, None, self._TERMINATE_GRACE_SECONDS)
+        self._stopped = self._reap(self._process, None, self._TERMINATE_GRACE_SECONDS)
         self._stderr = self._drain_stderr()
         if not self._iterating:
             self._stdout.close()
         self._finalizer.detach()
 
-    @staticmethod
+    _SETTLE_SECONDS = 0.1
+    """Grace given a process that just closed its pipe to also become reapable.
+
+    Natural end-of-output and process exit are not one atomic event: the
+    child closes its stdout fd as part of exiting, which can be observed by
+    a reader a hair before the kernel finishes marking the process reapable.
+    An instantaneous ``poll()`` right at that instant can still read "running"
+    for a process that has, in fact, already exited on its own -- this closes
+    that window rather than trusting a zero-wait snapshot.
+    """
+
+    @classmethod
     def _reap(
-        process: subprocess.Popen, stderr_file: IO[bytes] | None, grace: float
-    ) -> None:
+        cls, process: subprocess.Popen, stderr_file: IO[bytes] | None, grace: float
+    ) -> bool:
         """Stop a process and wait for it, escalating if it ignores the request.
+
+        Returns:
+            True if the process was still running and had to be signaled to
+            stop; False if it had already exited or was exiting on its own.
 
         Design:
             A command that traps SIGTERM would otherwise block the caller
@@ -148,17 +161,21 @@ class Stream:
             reader too. ``stderr_file`` is closed only when reaping on behalf of
             a dropped stream, which is the one path with nobody left to read it.
         """
-        if process.poll() is None:
+        try:
+            process.wait(timeout=cls._SETTLE_SECONDS)
+            still_running = False
+        except subprocess.TimeoutExpired:
+            still_running = True
+        if still_running:
             process.terminate()
             try:
                 process.wait(timeout=grace)
             except subprocess.TimeoutExpired:
                 process.kill()
                 process.wait()
-        else:
-            process.wait()
         if stderr_file is not None and not stderr_file.closed:
             stderr_file.close()
+        return still_running
 
     def _claim(self) -> None:
         """Take exclusive use of this stream.
