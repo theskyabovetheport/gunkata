@@ -9,6 +9,7 @@ authors = [{ name = "Finn", email = "theskyabovetheport@bratanmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.15.0",
+    "pyyaml>=6.0",
     "typer>=0.12",
 ]
 classifiers = [

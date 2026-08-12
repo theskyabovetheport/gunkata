@@ -1,8 +1,17 @@
 import subprocess
+from dataclasses import dataclass
 
 
 class AdbError(RuntimeError):
     pass
+
+
+@dataclass(frozen=True)
+class AdbDeviceEntry:
+    """One line of `adb devices`: a serial and the state adb reports for it."""
+
+    serial: str
+    state: str
 
 
 class Adb:
@@ -42,15 +51,26 @@ class Adb:
         return ["adb", "-s", self.serial, *args]
 
     @staticmethod
-    def list_serials() -> list[str]:
+    def list_devices() -> list[AdbDeviceEntry]:
+        """Every serial adb currently reports, whatever state it's in.
+
+        Returns:
+            One entry per line of `adb devices`, in the order adb reported
+            them -- offline and unauthorized serials included, unlike
+            list_serials.
+        """
         completed = subprocess.run(
             ["adb", "devices"], capture_output=True, text=True, check=True
         )
         return [
-            fields[0]
+            AdbDeviceEntry(fields[0], fields[1])
             for line in completed.stdout.splitlines()[1:]
-            if len(fields := line.split()) == 2 and fields[1] == "device"
+            if len(fields := line.split()) == 2
         ]
+
+    @staticmethod
+    def list_serials() -> list[str]:
+        return [d.serial for d in Adb.list_devices() if d.state == "device"]
 
     @classmethod
     def _get_one_serial(cls) -> str:

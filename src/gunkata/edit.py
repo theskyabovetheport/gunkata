@@ -1,23 +1,13 @@
 """Edit one device file through a local editor, sudoedit-style."""
 
 import logging
-import os
-import subprocess
-import tempfile
-from pathlib import Path, PurePosixPath
+from pathlib import PurePosixPath
+
+from gunkata.localedit import EditorNotFoundError, launch, resolve_editor
 
 from .shell import Shell
 
 logger = logging.getLogger(__name__)
-
-
-class EditorNotFoundError(RuntimeError):
-    """No editor was given and neither $VISUAL nor $EDITOR is set."""
-
-    def __init__(self):
-        super().__init__(
-            "no editor: pass --editor, or set $VISUAL or $EDITOR"
-        )
 
 
 class Edit:
@@ -61,7 +51,7 @@ class Edit:
             from its directory's, which create-on-write has no such prior
             owner to protect.
         """
-        editor = self._resolve_editor()
+        editor = resolve_editor(self._editor)
         was_missing = False
         try:
             original = self._shell.read_file(dpath)
@@ -69,24 +59,10 @@ class Edit:
             original = b""
             was_missing = True
 
-        suffix = "-" + PurePosixPath(dpath).name
-        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
-        try:
-            with os.fdopen(fd, "wb") as f:
-                f.write(original)
-            logger.debug("edit %s: launching %s on %s", dpath, editor, tmp_path)
-            subprocess.run([editor, tmp_path], check=True)
-            edited = Path(tmp_path).read_bytes()
-        finally:
-            os.remove(tmp_path)
+        logger.debug("edit %s: launching %s", dpath, editor)
+        edited = launch(editor, initial=original, suffix="-" + PurePosixPath(dpath).name)
 
         if edited == original:
             return False
         self._shell.write_file(dpath, edited, inherit_owner=was_missing)
         return True
-
-    def _resolve_editor(self) -> str:
-        editor = self._editor or os.environ.get("VISUAL") or os.environ.get("EDITOR")
-        if not editor:
-            raise EditorNotFoundError()
-        return editor

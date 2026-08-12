@@ -7,7 +7,6 @@ registration runs, then hands off to the shared Typer app.
 from gunkata.cli import (  # noqa: F401 -- imported for their command-registration side effect
     addr,
     device,
-    devices,
     edit,
     mem,
     pidof,

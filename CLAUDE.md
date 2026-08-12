@@ -49,7 +49,7 @@ Tools to improve security research workflows for Android devices
 # General Conventions
 
 - Resolve every persistent path through one shared helper
-  (`<package>/common/paths.py`); never re-implement the resolver locally.
+  (`gunkata/common/paths.py`); never re-implement the resolver locally.
   Secrets come only from the environment, never committed.
 - **Every atom carries a single identity; aliases are forbidden.** The name a
   thing is stored under is the name it is read under. Every alias is a mapping
@@ -133,6 +133,24 @@ Tools to improve security research workflows for Android devices
    no consumer there never runs; Typer only sees modules main.py imports.
 4. Add `tests/cli/test_<command>.py`, mirroring the module it tests (see
    `test_addr.py`, `test_procmaps.py`).
+
+## Adding a subcommand group
+
+For a command that is itself a group (`mem read`/`mem write`, `device
+list`/`device select`/`device name`/`device tag add`/`device tag remove`):
+
+1. Create `gunkata/cli/<group>.py` with its own `<group>_app = typer.Typer(...)`,
+   then `app.add_typer(<group>_app, name="<group>")`. A subcommand of the
+   group that is itself a group (`device tag`) gets its own nested `typer.Typer`
+   the same way, added to `<group>_app` instead of `app`.
+2. Decorate each subcommand with `@<group>_app.command("<name>")` (or the
+   nested sub-app's). Shared helpers used by more than one subcommand live as
+   module-level functions in the same file, not duplicated per subcommand —
+   see `mem.py`'s `_resolve_mem_pid`.
+3. Register the module in `gunkata/cli/main.py`'s import list, same as a
+   single-command module.
+4. Add `tests/cli/test_<group>.py` covering every subcommand, mirroring
+   `test_mem.py`/`test_device.py`.
 
 # Python Code Conventions
 

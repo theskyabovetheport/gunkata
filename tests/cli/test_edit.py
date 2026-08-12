@@ -2,7 +2,7 @@ import subprocess
 
 from typer.testing import CliRunner
 
-from gunkata import edit as edit_core
+from gunkata import localedit
 from gunkata.cli import edit as edit_cli
 from gunkata.cli.app import app
 
@@ -48,7 +48,7 @@ def test_edit_writes_back_a_changed_file(monkeypatch):
     """Editing a file that already exists must not chown it -- see Edit.run's design note."""
     fake = _EditFakeAdb(content=b"old\n")
     monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
-    monkeypatch.setattr(edit_core.subprocess, "run", _editor_that_writes(b"new\n"))
+    monkeypatch.setattr(localedit.subprocess, "run", _editor_that_writes(b"new\n"))
     result = CliRunner().invoke(
         app, ["edit", "/data/local/tmp/foo", "--editor", "fake-editor"]
     )
@@ -63,7 +63,7 @@ def test_edit_creating_a_missing_file_chowns_it_to_its_parent_dir(monkeypatch):
     otherwise owned by whichever user ran the write, not the app that owns the dir."""
     fake = _EditFakeAdb(read_ok=False)
     monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
-    monkeypatch.setattr(edit_core.subprocess, "run", _editor_that_writes(b"created\n"))
+    monkeypatch.setattr(localedit.subprocess, "run", _editor_that_writes(b"created\n"))
     result = CliRunner().invoke(
         app, ["edit", "/data/local/tmp/new", "--editor", "fake-editor"]
     )
@@ -77,7 +77,7 @@ def test_edit_creating_a_missing_file_chowns_it_to_its_parent_dir(monkeypatch):
 def test_edit_reports_unchanged_without_writing(monkeypatch):
     fake = _EditFakeAdb(content=b"same\n")
     monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
-    monkeypatch.setattr(edit_core.subprocess, "run", _editor_that_writes(b"same\n"))
+    monkeypatch.setattr(localedit.subprocess, "run", _editor_that_writes(b"same\n"))
     result = CliRunner().invoke(
         app, ["edit", "/data/local/tmp/foo", "--editor", "fake-editor"]
     )
