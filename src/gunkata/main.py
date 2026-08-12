@@ -267,6 +267,33 @@ def procmaps(
 
 
 @app.command()
+def pidof(
+    name: str = typer.Argument(None, autocompletion=_complete_process_name),
+) -> None:
+    """Print the pid(s) of every process matching name.
+
+    With no argument, fuzzy-pick the process via fzf instead.
+
+    Raises:
+        typer.Exit: name matched no running process; or no argument was
+            given and fzf is missing or the picker was exited without a pick.
+    """
+    device = Device(Adb())
+    if name is None:
+        pid = _fzf_pick_pid(device.ps().entries())
+        if pid is None:
+            raise typer.Exit(1)
+        typer.echo(pid)
+        return
+    pids = device.shell().pidof(name)
+    if not pids:
+        typer.echo(f"no such process: {name}", err=True)
+        raise typer.Exit(1)
+    for pid in pids:
+        typer.echo(pid)
+
+
+@app.command()
 def push(
     lpath: str = typer.Argument(...),
     dpath: str = typer.Argument(..., autocompletion=_complete_remote_path),

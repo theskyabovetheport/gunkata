@@ -201,6 +201,46 @@ def test_procmaps_with_no_flags_exits_when_fzf_is_missing(monkeypatch):
     assert "fzf" in result.output
 
 
+def test_pidof_prints_every_pid_matching_the_given_name(monkeypatch):
+    fake = _ProcmapsFakeAdb(pidof_output="1234 5678\n")
+    monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    result = CliRunner().invoke(main.app, ["pidof", "com.example.app"])
+    assert result.exit_code == 0
+    assert result.output.splitlines() == ["1234", "5678"]
+
+
+def test_pidof_errors_when_name_matches_no_process(monkeypatch):
+    fake = _ProcmapsFakeAdb(pidof_output="")
+    monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    result = CliRunner().invoke(main.app, ["pidof", "no.such.app"])
+    assert result.exit_code == 1
+
+
+def test_pidof_launches_fzf_and_prints_the_picked_pid(monkeypatch):
+    fake = _ProcmapsFakeAdb(
+        ps_output="USER  PID  PPID S NAME\nu0_a1 1234 567  S com.example.app\n",
+    )
+    monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(main.shutil, "which", lambda name: "/usr/bin/fzf")
+    monkeypatch.setattr(
+        main.subprocess,
+        "run",
+        lambda *a, **k: subprocess.CompletedProcess(a[0], 0, "1234\tcom.example.app\n", ""),
+    )
+    result = CliRunner().invoke(main.app, ["pidof"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "1234"
+
+
+def test_pidof_exits_when_fzf_is_missing(monkeypatch):
+    fake = _ProcmapsFakeAdb()
+    monkeypatch.setattr(main, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(main.shutil, "which", lambda name: None)
+    result = CliRunner().invoke(main.app, ["pidof"])
+    assert result.exit_code == 1
+    assert "fzf" in result.output
+
+
 def test_shell_command_runs_a_one_shot_command_and_exits_with_its_rc(monkeypatch):
     """A regression guard: `gunkata shell <cmd>` must run <cmd> and exit, not attach interactively."""
     fake = _ShellFakeAdb(stdout=b"hello\n", returncode=0)
