@@ -22,6 +22,11 @@ class SuBinary(BaseSettings):
             argument. True raises rather than silently send a command
             without one and let su fall back to whichever user it defaults
             to, which may not be the one the caller asked for.
+        wrap_command: Full override of the built command line, as a template
+            with one ``{}`` for the raw, unquoted command. Set when none of
+            the su-shaped quirks above apply -- e.g. a wrapper script with
+            its own calling convention -- bypassing name/has_dash_c/has_user
+            /needs_user entirely.
 
     Design:
         Name and quirks travel together because a caller never has one
@@ -39,6 +44,9 @@ class SuBinary(BaseSettings):
     has_user: bool = Field(True, validation_alias="GUNKATA_DEVICE_SU_BINARY_HAS_USER")
     needs_user: bool = Field(
         False, validation_alias="GUNKATA_DEVICE_SU_BINARY_NEEDS_USER"
+    )
+    wrap_command: str | None = Field(
+        None, validation_alias="GUNKATA_DEVICE_SU_BINARY_WRAP_COMMAND"
     )
 
     @classmethod
@@ -66,6 +74,8 @@ class SuBinary(BaseSettings):
                 command anyway would run it as whichever user su defaults
                 to, not the one asked for.
         """
+        if self.wrap_command is not None:
+            return self.wrap_command.format(command)
         if self.needs_user and user is None:
             raise ValueError(f"{self.name} needs an explicit user but none was given")
         user_part = f"{user} " if self.has_user and user is not None else ""

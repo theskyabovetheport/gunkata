@@ -79,6 +79,31 @@ def test_su_raises_when_the_binary_needs_a_user_but_none_was_given():
         shell._su("id")
 
 
+def test_wrap_command_overrides_the_built_command_line_entirely():
+    """A wrapper script with its own calling convention (e.g. one that
+    expects the raw, unquoted command) needs none of the su-shaped
+    quirks -- wrap_command bypasses name/has_dash_c/has_user/needs_user."""
+    su = SuBinary(name="su", wrap_command="/data/local/tmp/wrapper.sh {}")
+    shell = Shell(_SpyAdb(), user="root", su=su)
+    assert shell._su("cmd wifi status") == "/data/local/tmp/wrapper.sh cmd wifi status"
+
+
+def test_wrap_command_skips_needs_user_validation():
+    """The override bypasses su's own user handling entirely, so a user
+    that would otherwise be required is irrelevant once wrap_command is set."""
+    su = SuBinary(name="su", needs_user=True, wrap_command="wrapper {}")
+    shell = Shell(_SpyAdb(), user=None, su=su)
+    assert shell._su("id") == "wrapper id"
+
+
+def test_wrap_command_env_var_is_read_by_su_binary(monkeypatch):
+    monkeypatch.setenv(
+        "GUNKATA_DEVICE_SU_BINARY_WRAP_COMMAND", "/data/local/tmp/wrapper.sh {}"
+    )
+    shell = Shell(_SpyAdb(), user="root", su=SuBinary())
+    assert shell._su("id") == "/data/local/tmp/wrapper.sh id"
+
+
 def test_call_runs_command_and_captures_output():
     adb = _SpyAdb(stdout="hello\n", returncode=0)
     result = Shell(adb, user="shell", su=SuBinary(name="su"))("echo hello")
