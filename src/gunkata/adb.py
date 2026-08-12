@@ -1,3 +1,4 @@
+import os
 import subprocess
 from dataclasses import dataclass
 
@@ -16,8 +17,20 @@ class AdbDeviceEntry:
 
 class Adb:
     def __init__(self, serial: str | None = None):
+        """Scope this instance to serial, by priority: serial, then $ANDROID_SERIAL.
+
+        Raises:
+            AdbError: serial is None, $ANDROID_SERIAL is unset, and zero or
+                more than one device is currently connected.
+
+        Design:
+            $ANDROID_SERIAL is checked here, not by callers -- the same
+            environment variable real `adb` itself honors, so a caller that
+            never passes serial still gets the ambient device every other
+            adb-based tool in the same shell would target.
+        """
         if serial is None:
-            serial = self._get_one_serial()
+            serial = os.environ.get("ANDROID_SERIAL") or self._get_one_serial()
         self.serial = serial
 
     def __call__(

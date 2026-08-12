@@ -5,6 +5,13 @@ import pytest
 from gunkata.adb import Adb, AdbError
 
 
+@pytest.fixture(autouse=True)
+def _no_ambient_android_serial(monkeypatch):
+    """Every test starts with $ANDROID_SERIAL unset so a real dev shell's
+    export never leaks into an auto-detect test."""
+    monkeypatch.delenv("ANDROID_SERIAL", raising=False)
+
+
 def _fake_devices_output(stdout: str):
     return lambda *args, **kwargs: subprocess.CompletedProcess(
         args=args, returncode=0, stdout=stdout, stderr=""
@@ -61,6 +68,32 @@ def test_explicit_serial_skips_autodetect(monkeypatch):
         subprocess, "run", lambda *a, **k: pytest.fail("must not run adb devices")
     )
     assert Adb("emulator-5554").serial == "emulator-5554"
+
+
+def test_android_serial_skips_autodetect(monkeypatch):
+    """$ANDROID_SERIAL must be honored without shelling out to `adb devices`."""
+    monkeypatch.setenv("ANDROID_SERIAL", "emulator-5554")
+    monkeypatch.setattr(
+        subprocess, "run", lambda *a, **k: pytest.fail("must not run adb devices")
+    )
+    assert Adb().serial == "emulator-5554"
+
+
+def test_explicit_serial_beats_android_serial(monkeypatch):
+    """An explicit serial argument takes priority over $ANDROID_SERIAL."""
+    monkeypatch.setenv("ANDROID_SERIAL", "emulator-5556")
+    assert Adb("emulator-5554").serial == "emulator-5554"
+
+
+def test_empty_android_serial_falls_back_to_autodetect(monkeypatch):
+    """An empty override must not masquerade as a resolved serial."""
+    monkeypatch.setenv("ANDROID_SERIAL", "")
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        _fake_devices_output("List of devices attached\nemulator-5554\tdevice\n"),
+    )
+    assert Adb().serial == "emulator-5554"
 
 
 def test_popen_builds_the_same_device_argv_as_a_blocking_call(monkeypatch):

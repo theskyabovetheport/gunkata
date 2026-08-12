@@ -53,7 +53,7 @@ def _completion_cache_set(key: str, value: str) -> None:
 
 
 def _cached_serial_and_user() -> tuple[Adb, str]:
-    """Resolve the sole attached device and its default su user, from cache if fresh."""
+    """Resolve the target device and its default su user, from cache if fresh."""
     serial = _completion_cache_get("serial")
     if serial is None:
         serial = Adb().serial

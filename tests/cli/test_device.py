@@ -16,8 +16,9 @@ class _FakeAdb:
     _entries: list[AdbDeviceEntry] = []
     _shell_responses: dict[tuple[str, str], subprocess.CompletedProcess] = {}
 
-    def __init__(self, serial: str):
-        self.serial = serial
+    def __init__(self, serial: str | None = None):
+        """None mirrors real Adb's auto-detect: the fixture's sole entry."""
+        self.serial = serial or _FakeAdb._entries[0].serial
 
     def __call__(self, args, **kwargs):
         command = args[-1] if args and args[0] == "shell" else ""
@@ -48,6 +49,7 @@ def fake_adb(monkeypatch):
         ("emulator-5554", "getprop"): _cp("[ro.product.model]: [Pixel 4]\n")
     }
     monkeypatch.setattr(deviceroster, "Adb", _FakeAdb)
+    monkeypatch.setattr(device, "Adb", _FakeAdb)
     return _FakeAdb
 
 
@@ -96,7 +98,9 @@ def test_select_exits_with_no_devices(monkeypatch):
 
 
 def test_name_persists_and_a_later_list_reflects_it(fake_adb):
-    result = CliRunner().invoke(app, ["device", "name", "emulator-5554", "my phone"])
+    """No serial argument: the target device resolves via the sole connected
+    device, same as every other command."""
+    result = CliRunner().invoke(app, ["device", "name", "my phone"])
     assert result.exit_code == 0
 
     listing = CliRunner().invoke(app, ["device", "list"])
@@ -104,11 +108,11 @@ def test_name_persists_and_a_later_list_reflects_it(fake_adb):
 
 
 def test_tag_add_and_remove_round_trip_through_list(fake_adb):
-    CliRunner().invoke(app, ["device", "tag", "add", "emulator-5554", "rooted"])
+    CliRunner().invoke(app, ["device", "tag", "add", "rooted"])
     with_tag = CliRunner().invoke(app, ["device", "list"])
     assert "rooted" in with_tag.output
 
-    CliRunner().invoke(app, ["device", "tag", "remove", "emulator-5554", "rooted"])
+    CliRunner().invoke(app, ["device", "tag", "remove", "rooted"])
     without_tag = CliRunner().invoke(app, ["device", "list"])
     assert "rooted" not in without_tag.output
 
@@ -121,43 +125,37 @@ def test_malformed_list_config_errors_loudly(fake_adb, tmp_path):
     assert result.exit_code == 1
 
 
-def test_note_dash_m_appends_directly_without_touching_an_editor(tmp_path):
-    result = CliRunner().invoke(
-        app, ["device", "note", "emulator-5554", "-m", "  hello  "]
-    )
+def test_note_dash_m_appends_directly_without_touching_an_editor(fake_adb, tmp_path):
+    result = CliRunner().invoke(app, ["device", "note", "-m", "  hello  "])
     assert result.exit_code == 0
     note_path = tmp_path / "devices" / "info" / "emulator-5554-note"
     assert "hello" in note_path.read_text()
 
 
-def test_note_without_dash_m_composes_via_the_editor(monkeypatch, tmp_path):
+def test_note_without_dash_m_composes_via_the_editor(fake_adb, monkeypatch, tmp_path):
     monkeypatch.setattr(device, "launch", lambda editor, **kw: b"composed note\n")
-    result = CliRunner().invoke(
-        app, ["device", "note", "emulator-5554", "--editor", "fake-editor"]
-    )
+    result = CliRunner().invoke(app, ["device", "note", "--editor", "fake-editor"])
     assert result.exit_code == 0
     note_path = tmp_path / "devices" / "info" / "emulator-5554-note"
     assert "composed note" in note_path.read_text()
 
 
-def test_note_dash_m_with_only_whitespace_is_rejected(tmp_path):
-    result = CliRunner().invoke(app, ["device", "note", "emulator-5554", "-m", "   "])
+def test_note_dash_m_with_only_whitespace_is_rejected(fake_adb, tmp_path):
+    result = CliRunner().invoke(app, ["device", "note", "-m", "   "])
     assert result.exit_code == 1
     assert not (tmp_path / "devices" / "info" / "emulator-5554-note").exists()
 
 
-def test_note_editor_producing_only_whitespace_is_rejected(monkeypatch, tmp_path):
+def test_note_editor_producing_only_whitespace_is_rejected(fake_adb, monkeypatch, tmp_path):
     monkeypatch.setattr(device, "launch", lambda editor, **kw: b"   \n")
-    result = CliRunner().invoke(
-        app, ["device", "note", "emulator-5554", "--editor", "fake-editor"]
-    )
+    result = CliRunner().invoke(app, ["device", "note", "--editor", "fake-editor"])
     assert result.exit_code == 1
     assert not (tmp_path / "devices" / "info" / "emulator-5554-note").exists()
 
 
-def test_note_without_dash_m_and_no_editor_configured_errors_loudly(monkeypatch):
+def test_note_without_dash_m_and_no_editor_configured_errors_loudly(fake_adb, monkeypatch):
     monkeypatch.delenv("VISUAL", raising=False)
     monkeypatch.delenv("EDITOR", raising=False)
-    result = CliRunner().invoke(app, ["device", "note", "emulator-5554"])
+    result = CliRunner().invoke(app, ["device", "note"])
     assert result.exit_code == 1
     assert "editor" in result.output

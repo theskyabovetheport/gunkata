@@ -112,6 +112,12 @@ Tools to improve security research workflows for Android devices
   detection (`tty.py`) — gets its own shared module; a command module imports
   what it needs by name so tests can monkeypatch it on that command's own
   namespace.
+- **Every command scopes to a device with a bare `Adb()`.** `Adb.__init__`
+  resolves which device by priority: an explicit serial argument, then
+  `$ANDROID_SERIAL`, else auto-detecting the sole connected device (raising
+  on zero or multiple) -- the same environment variable real `adb` itself
+  honors. No command takes its own serial argument or option; see
+  `test_adb.py`.
 - **A command body is presentation only** — parse args, call into
   `gunkata.core`, render the result. No logic in the command; that lives in
   core.

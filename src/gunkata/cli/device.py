@@ -4,6 +4,7 @@ import sys
 
 import typer
 
+from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.common.paths import Paths
 from gunkata.deviceconfig import ListConfig, ListConfigError
@@ -83,29 +84,43 @@ def device_select() -> None:
 
 
 @device_app.command("name")
-def device_name(serial: str, name: str) -> None:
-    """Set serial's persisted name, replacing whatever was there before."""
+def device_name(name: str) -> None:
+    """Set the target device's persisted name, replacing whatever was there before.
+
+    The target device resolves the same way every other command's does:
+    $ANDROID_SERIAL, else the sole connected device.
+    """
+    serial = Adb().serial
     DeviceInfoStore(Paths.from_env()).set_name(serial, name)
     typer.echo(f"named {serial} {name!r}")
 
 
 @tag_app.command("add")
-def tag_add(serial: str, tag: str) -> None:
-    """Add tag to serial's tags. A no-op if it's already present."""
+def tag_add(tag: str) -> None:
+    """Add tag to the target device's tags. A no-op if it's already present.
+
+    The target device resolves the same way every other command's does:
+    $ANDROID_SERIAL, else the sole connected device.
+    """
+    serial = Adb().serial
     DeviceInfoStore(Paths.from_env()).add_tag(serial, tag)
     typer.echo(f"tagged {serial} {tag!r}")
 
 
 @tag_app.command("remove")
-def tag_remove(serial: str, tag: str) -> None:
-    """Remove tag from serial's tags. A no-op if it isn't present."""
+def tag_remove(tag: str) -> None:
+    """Remove tag from the target device's tags. A no-op if it isn't present.
+
+    The target device resolves the same way every other command's does:
+    $ANDROID_SERIAL, else the sole connected device.
+    """
+    serial = Adb().serial
     DeviceInfoStore(Paths.from_env()).remove_tag(serial, tag)
     typer.echo(f"untagged {serial} {tag!r}")
 
 
 @device_app.command("note")
 def device_note(
-    serial: str,
     message: str = typer.Option(
         None, "-m", help="Note text; omit to compose it in $VISUAL/$EDITOR instead."
     ),
@@ -113,7 +128,10 @@ def device_note(
         None, "--editor", help="Editor to launch when -m is omitted."
     ),
 ) -> None:
-    """Append a timestamped note to serial's note log.
+    """Append a timestamped note to the target device's note log.
+
+    The target device resolves the same way every other command's does:
+    $ANDROID_SERIAL, else the sole connected device.
 
     With -m, appends that text directly, git-commit -m style. Without it,
     launches a local editor on an empty buffer, git-commit style; an empty
@@ -123,6 +141,7 @@ def device_note(
         typer.Exit: -m was omitted and no editor is configured; or the
             resulting message is empty.
     """
+    serial = Adb().serial
     if message is None:
         try:
             editor_bin = resolve_editor(editor)
