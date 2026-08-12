@@ -225,6 +225,31 @@ class Shell:
         result = self.sh(f"pidof {name}")
         return [int(pid) for pid in result.stdout.split()] if result.ok else []
 
+    def read_bytes(self, command: str) -> bytes:
+        """Run command and return its raw, unstripped stdout bytes.
+
+        Raises:
+            ShellError: command exited non-zero.
+
+        Design:
+            Bypasses ``sh``'s text decoding and stripping: a caller reading
+            binary content -- a memory dump, here -- needs every byte
+            untouched, and stripping trailing whitespace would silently
+            drop bytes that happen to look like it.
+        """
+        cp = self._adb(["shell", self._su(command)], capture_output=True)
+        self._raise_if_failed(command, cp)
+        return cp.stdout
+
+    def write_bytes(self, command: str, data: bytes) -> None:
+        """Run command with data piped to its stdin.
+
+        Raises:
+            ShellError: command exited non-zero.
+        """
+        cp = self._adb(["shell", self._su(command)], input=data, capture_output=True)
+        self._raise_if_failed(command, cp)
+
     def execvp_sh(self, directory: str | None = None):
         """Replace this process with an interactive su shell on the device.
 

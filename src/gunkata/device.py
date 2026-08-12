@@ -2,6 +2,7 @@ import subprocess
 from enum import Enum
 from .adb import Adb
 from .logcat import Level, Logcat
+from .memory import Memory
 from .procmaps import ProcMaps
 from .ps import Ps
 from .settings import SuBinary
@@ -75,6 +76,19 @@ class Device:
             A cached view over `ps -A`; see Ps for its caching behaviour.
         """
         return Ps(self.shell())
+
+    def memory(self, pid: int, user: str | None = None) -> Memory:
+        """Read and write one process's memory via /proc/<pid>/mem.
+
+        Args:
+            user: Run the underlying dd commands as this user (default: root
+                if su is available, else shell).
+
+        Returns:
+            An accessor scoped to pid, checked against its live memory map
+            on every read and write; see Memory.
+        """
+        return Memory(self.shell(user=user), pid)
 
     @property
     def has_su(self) -> bool:

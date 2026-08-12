@@ -247,6 +247,34 @@ def test_pidof_returns_empty_list_when_not_running():
     assert shell.pidof("nonexistent-proc") == []
 
 
+def test_read_bytes_returns_raw_unstripped_stdout():
+    adb = _SpyAdb(stdout=b"payload\n\x00trailing", returncode=0)
+    shell = Shell(adb, user="root", su=SuBinary(name="su"))
+    assert shell.read_bytes("cat somefile") == b"payload\n\x00trailing"
+    assert adb.calls == [["shell", "su root sh -c 'cat somefile'"]]
+
+
+def test_read_bytes_raises_shell_error_on_failure():
+    adb = _SpyAdb(returncode=1, stderr="boom")
+    shell = Shell(adb, user="root", su=SuBinary(name="su"))
+    with pytest.raises(ShellError):
+        shell.read_bytes("false")
+
+
+def test_write_bytes_sends_data_to_the_commands_stdin():
+    adb = _SpyAdb(returncode=0)
+    shell = Shell(adb, user="root", su=SuBinary(name="su"))
+    shell.write_bytes("cat >somefile", b"payload")
+    assert adb.calls == [["shell", "su root sh -c 'cat >somefile'"]]
+
+
+def test_write_bytes_raises_shell_error_on_failure():
+    adb = _SpyAdb(returncode=1, stderr="boom")
+    shell = Shell(adb, user="root", su=SuBinary(name="su"))
+    with pytest.raises(ShellError):
+        shell.write_bytes("false", b"x")
+
+
 class _PopenSpyAdb:
     """Records the args a streaming spawn was given; runs a trivial local process."""
 

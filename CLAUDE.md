@@ -106,6 +106,11 @@ Tools to improve security research workflows for Android devices
 - **A command body is presentation only** — parse args, call into
   `gunkata.core`, render the result. No logic in the command; that lives in
   core.
+- **Marshalling user-facing syntax is a CLI concern, not core's.** Parsing a
+  CLI-specific string format — an address expression, a name resolved to a
+  pid — into the plain value a core class's method takes lives in `main.py`.
+  A core class stays a lean API: its methods take resolved values (`int`,
+  `bytes`, a real object), never a string a user typed at it.
 
 # Python Code Conventions
 

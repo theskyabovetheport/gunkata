@@ -4,6 +4,7 @@ from .adb import Adb
 from .addr import AddrLocator
 from .device import Device
 from .logcat import Level, Logcat, LogcatEntry
+from .memory import Memory, UnmappedRangeError
 from .procmaps import AmbiguousProcessError, NoSuchProcessError, ProcMaps
 from .ps import ProcessEntry, Ps
 from .shell import Shell
@@ -33,3 +34,7 @@ def procmaps() -> ProcMaps:
 
 def ps() -> Ps:
     return Ps(shell())
+
+
+def memory(pid: int) -> Memory:
+    return Memory(shell(), pid)
