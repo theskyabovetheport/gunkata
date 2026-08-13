@@ -40,6 +40,11 @@ class Paths(BaseSettings):
         return self.root / "devices"
 
     @property
+    def dist(self) -> Path:
+        """Cached frida-server release archives, ``root/dist``."""
+        return self.root / "dist"
+
+    @property
     def list_config_path(self) -> Path:
         """The ledger-style YAML declaring `device list`/`device select`'s extra columns."""
         return self.devices_dir / "list-config.yaml"

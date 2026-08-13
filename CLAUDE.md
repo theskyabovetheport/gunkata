@@ -238,3 +238,12 @@ names the command that runs the excluded part.
   without being asked. "Commit this" is not "merge this".
 - Verify the base ref before creating a worktree; confirm the current branch
   before committing.
+
+# Publishing
+
+- **Never publish this package to PyPI (or any other index) without the
+  maintainer's explicit, per-release approval.** `uv publish`, `twine upload`, a
+  release workflow, or any equivalent is forbidden until the maintainer says so
+  for that specific upload. A green build, a version bump, or approval of an
+  earlier release is never approval for the next one. An uploaded version can
+  never be replaced, only yanked — so the gate is before the upload, not after.

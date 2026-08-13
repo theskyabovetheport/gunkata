@@ -23,3 +23,8 @@ def test_derived_paths_nest_under_root(tmp_path, monkeypatch):
     assert paths.device_name_path("emulator-5554") == info_dir / "emulator-5554-name"
     assert paths.device_tags_path("emulator-5554") == info_dir / "emulator-5554-tags"
     assert paths.device_note_path("emulator-5554") == info_dir / "emulator-5554-note"
+
+
+def test_dist_is_the_dist_subdir_of_root(monkeypatch, tmp_path):
+    monkeypatch.setenv("GUNKATA_ROOT", str(tmp_path))
+    assert Paths.from_env().dist == tmp_path / "dist"

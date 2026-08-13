@@ -26,6 +26,9 @@ classifiers = [
 Homepage = "https://github.com/theskyabovetheport/gunkata"
 Repository = "https://github.com/theskyabovetheport/gunkata"
 
+[project.optional-dependencies]
+frida = ["frida>=16"]
+
 [project.scripts]
 gunkata = "gunkata.cli.main:main"
 

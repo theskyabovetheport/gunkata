@@ -3,6 +3,15 @@
 from .adb import Adb
 from .addr import AddrLocator
 from .device import Device
+from .frida import (
+    Arch,
+    FridaClient,
+    FridaServer,
+    Injection,
+    ServerRepo,
+    inject,
+    server_repo,
+)
 from .logcat import Level, Logcat, LogcatEntry
 from .memory import Memory, UnmappedRangeError
 from .procmaps import AmbiguousProcessError, NoSuchProcessError, ProcMaps
@@ -39,3 +48,17 @@ def ps() -> Ps:
 def memory(pid: int) -> Memory:
     device_shell = shell()
     return Memory(device_shell, pid, ProcMaps(device_shell))
+
+
+def frida_server(
+    serial: str | None = None,
+    version: str | None = None,
+    su_binary: str | None = None,
+) -> FridaServer:
+    return Device(Adb(serial), su_binary=su_binary).frida_server(
+        server_repo(), version=version
+    )
+
+
+def frida(serial: str | None = None, timeout: float = 10.0) -> FridaClient:
+    return Device(Adb(serial)).frida(timeout=timeout)

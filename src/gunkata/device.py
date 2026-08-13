@@ -2,6 +2,9 @@ import subprocess
 from enum import Enum
 from .adb import Adb
 from .edit import Edit
+from .frida.client import FridaClient, frida_client
+from .frida.repo import ServerRepo
+from .frida.server import FridaServer, FridaServerError
 from .logcat import Level, Logcat
 from .memory import Memory
 from .procmaps import ProcMaps
@@ -105,6 +108,54 @@ class Device:
             edit one file.
         """
         return Edit(self.shell(user=user), editor=editor)
+
+    def frida_server(
+        self,
+        repo: ServerRepo,
+        *,
+        version: str | None = None,
+        device_path: str = FridaServer.DEFAULT_DEVICE_PATH,
+        port: int = FridaServer.DEFAULT_PORT,
+    ) -> FridaServer:
+        """A frida-server bound to this device's root shell.
+
+        Args:
+            repo: Source of the frida-server binary to provision.
+            version: frida version to provision, or None for the installed frida
+                package's version.
+            device_path: Where the binary lives on the device.
+            port: Loopback port frida-server binds on the device.
+
+        Returns:
+            A server ready to install, start, stop, or run scoped, under a shell
+            that can gain root.
+
+        Raises:
+            FridaServerError: This device has no su, so frida-server could not
+                gain the root it needs to ptrace.
+        """
+        if not self.has_su:
+            raise FridaServerError(
+                f"device {self.serial} has no su; frida-server needs root to ptrace"
+            )
+        return FridaServer(
+            self.shell(), repo, version=version, device_path=device_path, port=port
+        )
+
+    def frida(self, *, timeout: float = 10.0) -> FridaClient:
+        """Connect a frida client to this device's running frida-server.
+
+        Args:
+            timeout: Seconds to wait for the server to answer.
+
+        Returns:
+            A client bound to this device's serial; start the server first.
+
+        Raises:
+            FridaUnavailableError: frida is not installed.
+            FridaNotReadyError: The server did not answer within the timeout.
+        """
+        return frida_client(self.serial, timeout=timeout)
 
     @property
     def has_su(self) -> bool:
