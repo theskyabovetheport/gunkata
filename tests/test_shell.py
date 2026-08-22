@@ -23,12 +23,14 @@ class _SpyAdb:
     ):
         self.serial = "fake-serial"
         self.calls: list[list[str]] = []
+        self.kwargs: list[dict] = []
         self._stdout = stdout.encode() if isinstance(stdout, str) else stdout
         self._stderr = stderr.encode() if isinstance(stderr, str) else stderr
         self._returncode = returncode
 
     def __call__(self, args, **kwargs) -> subprocess.CompletedProcess:
         self.calls.append(args)
+        self.kwargs.append(kwargs)
         return subprocess.CompletedProcess(
             args=args,
             returncode=self._returncode,
@@ -177,6 +179,16 @@ def test_call_runs_command_and_captures_output():
     assert result.ok
     assert result.stdout == "hello"
     assert adb.calls == [["shell", "su root sh -c 'echo hello'"]]
+
+
+def test_sh_closes_stdin_so_it_never_drains_a_callers_own_stdin():
+    """A one-shot command (pidof, read_file, ...) must never forward this
+    process's own stdin to the device -- a caller resolving -P via pidof
+    before reading a payload from stdin itself must find that payload
+    intact, not consumed by adb pumping it to pidof's unrelated stdin."""
+    adb = _SpyAdb(stdout="", returncode=0)
+    Shell(adb, user="root", su=Su()).sh("id")
+    assert adb.kwargs[-1]["stdin"] is subprocess.DEVNULL
 
 
 def test_read_file_returns_raw_bytes():

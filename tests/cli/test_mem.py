@@ -1,5 +1,4 @@
 import importlib
-import io
 import subprocess
 
 import pytest
@@ -69,8 +68,7 @@ def test_mem_read_writes_raw_bytes_to_stdout_when_piped(monkeypatch):
     monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app,
-        ["mem", "read", "-s", "0x7f0000000000", "-e", "0x7f0000000005"],
-        input="1234\n",
+        ["mem", "read", "-s", "0x7f0000000000", "-e", "0x7f0000000005", "-p", "1234"],
     )
     assert result.exit_code == 0
     assert result.output == "hello"
@@ -82,45 +80,17 @@ def test_mem_read_hexdumps_when_stdout_is_a_tty(monkeypatch, capsys):
     directly sidesteps it."""
     fake = _MemFakeAdb(maps=_MEM_MAPS, dd_stdout=b"hi")
     monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
-    monkeypatch.setattr(mem.sys, "stdin", io.StringIO("1234\n"))
     monkeypatch.setattr(mem.sys.stdout, "isatty", lambda: True)
-    mem.mem_read(start="0x7f0000000000", end="0x7f0000000002", pid=None, name=None)
+    mem.mem_read(start="0x7f0000000000", end="0x7f0000000002", pid=1234, name=None)
     out = capsys.readouterr().out
     assert "68 69" in out
     assert "hi" in out
 
 
-def test_mem_read_requires_exactly_one_pid_on_stdin():
-    result = CliRunner().invoke(
-        app, ["mem", "read", "-s", "0x1", "-e", "0x2"], input="1234\n5678\n"
-    )
-    assert result.exit_code == 1
-    assert "expected exactly one pid" in result.output
-
-
-def test_mem_read_rejects_a_non_numeric_pid():
-    result = CliRunner().invoke(
-        app, ["mem", "read", "-s", "0x1", "-e", "0x2"], input="notapid\n"
-    )
-    assert result.exit_code == 1
-
-
-def test_mem_read_rejects_an_unparseable_address():
-    result = CliRunner().invoke(
-        app, ["mem", "read", "-s", "zz", "-e", "0x2"], input="1234\n"
-    )
+def test_mem_read_requires_exactly_one_of_p_or_capital_p():
+    result = CliRunner().invoke(app, ["mem", "read", "-s", "0x1", "-e", "0x2"])
     assert result.exit_code == 2
-
-
-def test_mem_read_with_p_uses_the_given_pid_without_touching_stdin(monkeypatch):
-    """-p must skip stdin entirely, not merely take priority over it."""
-    fake = _MemFakeAdb(maps=_MEM_MAPS, dd_stdout=b"hello")
-    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
-    result = CliRunner().invoke(
-        app, ["mem", "read", "-s", "0x7f0000000000", "-e", "0x7f0000000005", "-p", "1234"]
-    )
-    assert result.exit_code == 0
-    assert result.output == "hello"
+    assert "pass exactly one of -p/-P" in result.output
 
 
 def test_mem_read_with_capital_p_resolves_the_name_to_a_pid(monkeypatch):
@@ -164,71 +134,102 @@ def test_mem_read_with_capital_p_errors_when_name_matches_nothing(monkeypatch):
     assert result.exit_code == 1
 
 
+def test_mem_read_rejects_an_unparseable_address():
+    result = CliRunner().invoke(
+        app, ["mem", "read", "-s", "zz", "-e", "0x2", "-p", "1234"]
+    )
+    assert result.exit_code == 2
+
+
 def test_mem_read_reports_an_unmapped_range_loudly(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
     monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
-        app, ["mem", "read", "-s", "0x1", "-e", "0x10"], input="1234\n"
+        app, ["mem", "read", "-s", "0x1", "-e", "0x10", "-p", "1234"]
     )
     assert result.exit_code == 1
     assert "not fully mapped" in result.output
 
 
-def test_mem_write_sends_the_files_bytes(monkeypatch, tmp_path):
+def test_mem_write_sends_stdins_bytes(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
     monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
-    payload = tmp_path / "payload.bin"
-    payload.write_bytes(b"payload")
     result = CliRunner().invoke(
         app,
-        ["mem", "write", "-s", "0x7f0000000000", "-f", str(payload)],
-        input="1234\n",
+        ["mem", "write", "-s", "0x7f0000000000", "-p", "1234"],
+        input=b"payload",
     )
     assert result.exit_code == 0
     assert fake.last_input == b"payload"
 
 
-def test_mem_write_with_p_uses_the_given_pid_without_touching_stdin(monkeypatch, tmp_path):
-    fake = _MemFakeAdb(maps=_MEM_MAPS)
+def test_mem_write_with_capital_p_resolves_the_name_to_a_pid(monkeypatch):
+    fake = _MemFakeAdb(maps=_MEM_MAPS, pidof_output="1234\n")
     monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
-    payload = tmp_path / "payload.bin"
-    payload.write_bytes(b"payload")
     result = CliRunner().invoke(
-        app, ["mem", "write", "-s", "0x7f0000000000", "-f", str(payload), "-p", "1234"]
+        app,
+        ["mem", "write", "-s", "0x7f0000000000", "-P", "com.example.app"],
+        input=b"payload",
     )
     assert result.exit_code == 0
     assert fake.last_input == b"payload"
 
 
-def test_mem_write_rejects_data_that_would_cross_the_given_end(monkeypatch, tmp_path):
-    fake = _MemFakeAdb(maps=_MEM_MAPS)
-    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
-    payload = tmp_path / "payload.bin"
-    payload.write_bytes(b"0123456789")
+def test_mem_write_requires_exactly_one_of_p_or_capital_p():
+    result = CliRunner().invoke(app, ["mem", "write", "-s", "0x7f0000000000"])
+    assert result.exit_code == 2
+    assert "pass exactly one of -p/-P" in result.output
+
+
+def test_mem_write_rejects_both_p_and_capital_p():
     result = CliRunner().invoke(
         app,
         [
-            "mem",
-            "write",
-            "-s",
-            "0x7f0000000000",
-            "-e",
-            "0x7f0000000005",
-            "-f",
-            str(payload),
+            "mem", "write", "-s", "0x7f0000000000",
+            "-p", "1234", "-P", "com.example.app",
         ],
-        input="1234\n",
+    )
+    assert result.exit_code == 2
+
+
+def test_mem_write_with_capital_p_errors_when_name_matches_multiple_processes(
+    monkeypatch,
+):
+    fake = _MemFakeAdb(maps=_MEM_MAPS, pidof_output="1234 5678\n")
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
+    result = CliRunner().invoke(
+        app,
+        ["mem", "write", "-s", "0x7f0000000000", "-P", "com.example.app"],
     )
     assert result.exit_code == 1
 
 
-def test_mem_write_reports_an_unmapped_range_loudly(monkeypatch, tmp_path):
+def test_mem_write_with_capital_p_errors_when_name_matches_nothing(monkeypatch):
+    fake = _MemFakeAdb(maps=_MEM_MAPS, pidof_output="")
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
+    result = CliRunner().invoke(
+        app,
+        ["mem", "write", "-s", "0x7f0000000000", "-P", "no.such.app"],
+    )
+    assert result.exit_code == 1
+
+
+def test_mem_write_rejects_data_that_would_cross_the_given_end(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
     monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
-    payload = tmp_path / "payload.bin"
-    payload.write_bytes(b"x")
     result = CliRunner().invoke(
-        app, ["mem", "write", "-s", "0x1", "-f", str(payload)], input="1234\n"
+        app,
+        ["mem", "write", "-s", "0x7f0000000000", "-e", "0x7f0000000005", "-p", "1234"],
+        input=b"0123456789",
+    )
+    assert result.exit_code == 1
+
+
+def test_mem_write_reports_an_unmapped_range_loudly(monkeypatch):
+    fake = _MemFakeAdb(maps=_MEM_MAPS)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
+    result = CliRunner().invoke(
+        app, ["mem", "write", "-s", "0x1", "-p", "1234"], input=b"x"
     )
     assert result.exit_code == 1
     assert "not fully mapped" in result.output

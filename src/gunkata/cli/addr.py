@@ -1,4 +1,4 @@
-"""`gunkata addr`: annotate a piped /proc/<pid>/maps listing at one address."""
+"""`gunkata addr`: annotate a process's /proc/<pid>/maps listing at one address."""
 
 import sys
 
@@ -6,9 +6,11 @@ import typer
 
 from gunkata.addr import AddrLocator
 from gunkata.cli.app import app
+from gunkata.cli.completion import complete_process_name
 from gunkata.cli.hexaddr import parse_hex_address_expr
 from gunkata.cli.tty import stdin_is_tty
-from gunkata.procmaps import ProcMaps
+from gunkata.device import Device
+from gunkata.procmaps import AmbiguousProcessError, NoSuchProcessError, ProcMaps
 
 
 @app.command()
@@ -23,17 +25,28 @@ def addr(
     before: int = typer.Option(
         3, "-B", min=0, help="Lines of context above (before) the match, like grep -B."
     ),
+    pid: int = typer.Option(None, "-p", help="Target this pid."),
+    name: str = typer.Option(
+        None,
+        "-P",
+        help="Target the sole process matching this name.",
+        autocompletion=complete_process_name,
+    ),
 ) -> None:
-    """Annotate a piped /proc/<pid>/maps listing at one address.
+    """Annotate a process's /proc/<pid>/maps listing at one address.
 
-    Reads the listing from stdin and marks the mapping the address falls
-    in, with surrounding lines for context:
+    Target the process with -p or -P, or pipe a listing on stdin -- e.g.
+    from `gunkata procmaps`:
 
+      gunkata addr 0x7fffc274f000+0x1000 -P <name>
       gunkata procmaps -P <name> | gunkata addr 0x7fffc274f000+0x1000
     """
-    if stdin_is_tty():
+    if pid is not None and name is not None:
+        typer.echo("pass at most one of -p/-P", err=True)
+        raise typer.Exit(2)
+    if pid is None and name is None and stdin_is_tty():
         typer.echo(
-            "addr reads a /proc/<pid>/maps listing from stdin; pipe one in, e.g.:\n"
+            "pass -p or -P, or pipe a /proc/<pid>/maps listing on stdin, e.g.:\n"
             "  gunkata procmaps -P <name> | gunkata addr <address>",
             err=True,
         )
@@ -43,8 +56,20 @@ def addr(
     except ValueError as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(2) from None
-    try:
+    if pid is not None or name is not None:
+        shell = Device().shell()
+        try:
+            procmaps = (
+                ProcMaps.by_pid(shell, pid)
+                if pid is not None
+                else ProcMaps.by_name(shell, name)
+            )
+        except (NoSuchProcessError, AmbiguousProcessError) as exc:
+            typer.echo(str(exc), err=True)
+            raise typer.Exit(1) from None
+    else:
         procmaps = ProcMaps(sys.stdin.buffer.read())
+    try:
         locator = AddrLocator(procmaps)
     except ValueError as exc:
         typer.echo(str(exc), err=True)

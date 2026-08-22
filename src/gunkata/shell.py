@@ -420,6 +420,25 @@ class Shell:
     def __call__(self, command: str) -> ShellResult:
         return self.sh(command)
 
+    def _run(self, command: str) -> subprocess.CompletedProcess:
+        """Run command on the device and capture its output, stdin closed.
+
+        Design:
+            stdin=DEVNULL so a one-shot command never forwards this
+            process's own stdin to the device: adb otherwise pumps
+            whatever's on it to the remote command, draining it out from
+            under a caller that means to read it itself afterward (a
+            command's own -p/-P resolution shelling out to pidof before
+            reading a payload from stdin, say). Same reasoning
+            ``_popen_command``'s docstring gives for its streaming
+            commands, applied to adb's synchronous, capture_output form.
+            write_file/write_bytes call ``self._adb`` directly instead of
+            this, since their own ``input=`` already supplies stdin.
+        """
+        return self._adb(
+            ["shell", self._su(command)], capture_output=True, stdin=subprocess.DEVNULL
+        )
+
     def sh(self, command: str, strip: bool = True) -> ShellResult:
         """Run a command on the device and wait for it to finish.
 
@@ -431,7 +450,7 @@ class Shell:
             A device sends whatever a native caller hands it.
         """
         logger.debug("sh %s", command)
-        cp = self._adb(["shell", self._su(command)], capture_output=True)
+        cp = self._run(command)
         stdout = cp.stdout.decode("utf-8", errors="replace")
         stderr = cp.stderr.decode("utf-8", errors="replace")
         if strip:
@@ -939,7 +958,7 @@ class Shell:
         command = (
             f"if [ -e {dpath} ]; then cat {dpath}; else exit {self._MISSING_FILE_RC}; fi"
         )
-        cp = self._adb(["shell", self._su(command)], capture_output=True)
+        cp = self._run(command)
         if cp.returncode == self._MISSING_FILE_RC:
             raise FileNotFoundError(dpath)
         self._raise_if_failed(command, cp)
@@ -961,7 +980,7 @@ class Shell:
         """
         recursive_part = "-R " if recursive else ""
         command = f"chown {recursive_part}$(stat -c %u:%g $(dirname {dpath})) {dpath}"
-        cp = self._adb(["shell", self._su(command)], capture_output=True)
+        cp = self._run(command)
         self._raise_if_failed(command, cp)
 
     def mkdir(self, dpath: str):
@@ -994,7 +1013,7 @@ class Shell:
             untouched, and stripping trailing whitespace would silently
             drop bytes that happen to look like it.
         """
-        cp = self._adb(["shell", self._su(command)], capture_output=True)
+        cp = self._run(command)
         self._raise_if_failed(command, cp)
         return cp.stdout
 

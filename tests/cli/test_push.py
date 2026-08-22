@@ -30,8 +30,9 @@ class _PushFakeAdb:
     def __call__(self, args, **kwargs) -> subprocess.CompletedProcess:
         command = args[-1]
         self.commands.append(command)
-        if "stdin" in kwargs:
-            self.pushed = kwargs["stdin"].read()
+        stdin = kwargs.get("stdin")
+        if stdin is not None and stdin is not subprocess.DEVNULL:
+            self.pushed = stdin.read()
         return subprocess.CompletedProcess(args, self._returncode(command), b"", b"")
 
     def _returncode(self, command: str) -> int:

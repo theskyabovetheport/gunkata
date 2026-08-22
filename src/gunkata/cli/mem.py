@@ -1,7 +1,6 @@
 """`gunkata mem read`/`gunkata mem write`: process-memory access via /proc/<pid>/mem."""
 
 import sys
-from pathlib import Path
 
 import typer
 
@@ -25,30 +24,6 @@ _MEM_NAME_OPTION = typer.Option(
     help="Target the sole process matching this name.",
     autocompletion=complete_process_name,
 )
-
-def _read_stdin_pid() -> int:
-    """Read exactly one pid from stdin, as `gunkata pidof` would produce it.
-
-    Design:
-        Requiring exactly one keeps -s/-e unambiguous: they describe a
-        single address space, and a name that matched several processes is
-        a decision for whoever ran `gunkata pidof`, not something to guess at
-        here by looping over every pid it printed.
-
-    Raises:
-        typer.Exit: stdin held zero or more than one whitespace-separated
-            token, or the token wasn't a valid pid.
-    """
-    tokens = sys.stdin.read().split()
-    if len(tokens) != 1:
-        typer.echo(f"expected exactly one pid on stdin, got {len(tokens)}", err=True)
-        raise typer.Exit(1)
-    try:
-        return int(tokens[0])
-    except ValueError:
-        typer.echo(f"not a valid pid: {tokens[0]!r}", err=True)
-        raise typer.Exit(1) from None
-
 
 def _parse_mem_address_expr(expr: str) -> int:
     """Resolve one of mem's -s/-e expressions, or exit loudly if it fails.
@@ -74,31 +49,40 @@ def _hexdump(data: bytes, base: int) -> str:
     return "\n".join(lines)
 
 
-def _resolve_mem_pid(device: Device, pid: int | None, name: str | None) -> int:
-    """Resolve mem's target pid: -p directly, -P by name, or otherwise stdin.
+def _resolve_name_to_pid(device: Device, name: str) -> int:
+    """Resolve -P's process name to the pid of its sole match.
 
     Raises:
-        typer.Exit: both pid and name were given; name matched zero or more
-            than one process; or, with neither given, stdin didn't hold
-            exactly one pid.
+        typer.Exit: name matched zero or more than one process.
+    """
+    try:
+        pids = device.shell().pidof(name)
+        if not pids:
+            raise NoSuchProcessError(name)
+        if len(pids) > 1:
+            raise AmbiguousProcessError(name, pids)
+    except (NoSuchProcessError, AmbiguousProcessError) as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from None
+    return pids[0]
+
+
+def _resolve_mem_pid(device: Device, pid: int | None, name: str | None) -> int:
+    """Resolve mem's target pid: exactly one of -p directly or -P by name.
+
+    Raises:
+        typer.Exit: neither or both of pid and name were given; name matched
+            zero or more than one process.
     """
     if pid is not None and name is not None:
-        typer.echo("pass at most one of -p/-P", err=True)
+        typer.echo("pass exactly one of -p/-P", err=True)
         raise typer.Exit(2)
     if name is not None:
-        try:
-            pids = device.shell().pidof(name)
-            if not pids:
-                raise NoSuchProcessError(name)
-            if len(pids) > 1:
-                raise AmbiguousProcessError(name, pids)
-        except (NoSuchProcessError, AmbiguousProcessError) as exc:
-            typer.echo(str(exc), err=True)
-            raise typer.Exit(1) from None
-        return pids[0]
+        return _resolve_name_to_pid(device, name)
     if pid is not None:
         return pid
-    return _read_stdin_pid()
+    typer.echo("pass exactly one of -p/-P", err=True)
+    raise typer.Exit(2)
 
 
 @mem_app.command("read")
@@ -110,8 +94,7 @@ def mem_read(
 ) -> None:
     """Read a process's memory from -s up to, but not including, -e.
 
-    Target the process with -p or -P; with neither, one pid is read from
-    stdin, as `gunkata pidof` prints it.
+    Target the process with exactly one of -p or -P.
 
     Prints a hex dump on a terminal, and writes raw bytes when piped
     elsewhere.
@@ -133,7 +116,6 @@ def mem_read(
 
 @mem_app.command("write")
 def mem_write(
-    file: Path = typer.Option(..., "-f", help="Local file whose bytes are written."),
     start: str = typer.Option(..., "-s", help="Start address, e.g. 0x7f0000 or 0x7f0000+0x10."),
     end: str = typer.Option(
         None, "-e", help="Upper bound the write must not cross (optional)."
@@ -141,10 +123,9 @@ def mem_write(
     pid: int = _MEM_PID_OPTION,
     name: str = _MEM_NAME_OPTION,
 ) -> None:
-    """Write a local file's bytes into a process's memory at -s.
+    """Write stdin's bytes into a process's memory at -s.
 
-    Target the process with -p or -P; with neither, one pid is read from
-    stdin, as `gunkata pidof` prints it.
+    Target the process with exactly one of -p or -P.
 
     With -e, a write that would reach past that address is refused instead
     of truncated.
@@ -153,7 +134,7 @@ def mem_write(
     target_pid = _resolve_mem_pid(device, pid, name)
     start_addr = _parse_mem_address_expr(start)
     end_addr = _parse_mem_address_expr(end) if end is not None else None
-    data = file.read_bytes()
+    data = sys.stdin.buffer.read()
     try:
         Memory(device.shell(), target_pid).write(start_addr, data, end_addr)
     except (ValueError, UnmappedRangeError) as exc:
