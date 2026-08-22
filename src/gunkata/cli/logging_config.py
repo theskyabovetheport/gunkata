@@ -1,11 +1,11 @@
 """Root logger configuration for the `gunkata` CLI, resolved from $GUNKATA_LOG_LEVEL.
 
 `configure_logging` is called exactly once, from the CLI entry point
-(`gunkata.cli.main:main`), before any subcommand runs -- per CLAUDE.md's
-Logging section, a module logs, only the application configures. This is the
-CLI acting as that application; library callers configure the `"gunkata"`
-logger themselves and must never call `configure_logging`, since it reaches
-past gunkata's own logger hierarchy to the real root logger.
+(`gunkata.cli.main:main`), before any subcommand runs: a module logs, only
+the application configures. This is the CLI acting as that application;
+library callers configure the `"gunkata"` logger themselves and must never
+call `configure_logging`, since it reaches past gunkata's own logger
+hierarchy to the real root logger -- see CLAUDE.md's Logging section.
 
 `LogSettings` lives here rather than at the package root because
 `configure_logging` is its only consumer -- per CLAUDE.md's settings-class

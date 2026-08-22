@@ -146,110 +146,24 @@ Tools to improve security research workflows for Android devices
 
 ---
 
-# Documentation
-
-- **State each invariant once, split by job.** README states the *property*;
-  CLAUDE.md states the *rule that protects it* plus the guard test's name.
-  Never restate one in the other — they drift. No guard: whether a fact
-  appears in both files is a reading of prose no scanner performs.
-- **A CLAUDE.md invariant is a rule plus its guards**: a bold imperative, at
-  most a sentence or two of why, and the names of the tests that pin it. The
-  full rationale lives at exactly one durable home — the enforcement site's
-  docstring, the module README, an ADR, or the guarding test's docstring — and
-  CLAUDE.md *points* there instead of restating it. No guard: whether a
-  sentence points versus restates the rationale is a judgement only a
-  reviewer can make.
-- **Cross-cutting rules live only in the root CLAUDE.md.** A module CLAUDE.md
-  holds only its *local* rules and points to root for shared ones. No guard:
-  this repository carries a single CLAUDE.md, so the rule has nothing to
-  violate yet.
-- **A pointer must resolve.** Cite tests by exact name, sections by exact
-  heading; a rename that breaks a pointer fixes the pointer in the same
-  commit. Guarded by `doctrine test` (dangling-test-pointer) for the test
-  names a CLAUDE.md cites; a section-heading pointer has no such check yet.
-- **A module earns a recipe once a kind repeats.** Write `## Adding a <thing>`
-  — the ordered list of edits a correct addition makes, guard tests named — in
-  the commit that creates the *second* instance of the kind. No guard:
-  whether a second instance of a kind has appeared is a judgement only a
-  reviewer makes.
-- **An invariant that blocks the task is a question, never a judgement call.**
-  Read its pointer first; if it still blocks, stop and ask. Never work around
-  one silently. Changing a rule edits its CLAUDE.md entry, its guard test, and
-  the code in the same commit. No guard: whether a blocker was actually
-  raised and asked about is known only to the parties of that conversation.
-- **Mark a workaround as a workaround, with its removal condition** — "this is
-  a workaround, not a design; when <X> lands, move it; do not entrench it."
-  No guard: recognizing a workaround in code is a judgement a scanner cannot
-  make.
-- No other top-level doc files unless the user explicitly asks.
-- Deferred work lives in <the tracker>, never in module-local TODO files.
-  Resolve an item by closing it in the same commit that resolves it, moving
-  its durable half into the owning README.md or CLAUDE.md. The backlog
-  records only what is next; see `# History` for what it must not record.
-
 # History
 
-**The checkout says what is true now. Git says how it got that way.** Two
-rules, firing at different moments — you need both. No guard: this sentence
-introduces the two rules below; each carries its own guard or reason.
+**The no-history law above has a second guard in this repository.** Guarded
+by `test_no_history_prose_in_tree` and `test_no_history_files_in_tree` in
+`tests/test_docs.py`, whose same-line exemption marker is `noqa: history`,
+not the `history-ok` that only `doctrine test` reads — a tracked line that
+must quote a banned phrase carries both.
 
-**Never write history into a tracked file.** Banned in every file you edit:
-changelogs, "recently completed" sections (in files *and* in the tracker),
-migration notes, dated TODOs, commented-out old code, and any comment of the
-form `# was:`, `# changed from`, `# previously`, `# as of v2`, `# no longer`, <!-- history-ok -->
-`# kept for compat`. Test: if your line only makes sense to a reader who saw
-the previous version, it belongs in the commit message. Delete it and write
-it there. Guarded by `test_no_history_prose_in_tree` and
-`test_no_history_files_in_tree`, in `tests/test_docs.py`.
-
-**Never answer a "why" or "when" question from the tree.** Trigger phrases:
-"why is this like this", "when did this change", "what did this used to do", <!-- history-ok -->
-"who decided", "was this intentional". These have no answer in the checkout,
-by design. No guard: whether a given answer came from git or was guessed
-from the code is legible only to whoever wrote it. Run git:
-
-```bash
-git log -S'<exact text>' -- <path>   # when this string appeared/vanished
-git log --follow -p -- <path>        # this file's changes, across renames
-git log -L<start>,<end>:<path>       # these lines' history
-git show <sha>:<path>                # the file as of that commit
-```
-
-**If git does not answer it, say "git does not record this."** Do not infer
-intent from the code. A reconstructed rationale is indistinguishable from a
-real one to the reader, and wrong about half the time. No guard: whether a
-stated rationale was reconstructed or read from git is not visible in the
-text alone.
-
-**One exception, narrow: negative knowledge lives in CLAUDE.md, compressed to
-a sentence** — a design that *shipped and was reverted* and would regress if
-reintroduced. Code cannot record what is absent from it, so this is the one
-rationale a pointer cannot serve. The test is a single question: was it ever
-merged to the default branch? No → not a tombstone; it is a changelog entry
-in the wrong place. Do not write it. No guard: whether a design shipped and
-was reverted is a fact about history no scan of the present tree can
-confirm.
+**If git does not answer a "why" or "when" question, say "git does not
+record this."** Do not infer intent from the code. A reconstructed rationale
+is indistinguishable from a real one to the reader, and wrong about half the
+time. No guard: whether a stated rationale was reconstructed or read from git
+is not visible in the text alone.
 
 # General Conventions
 
-- Resolve every persistent path through one shared helper
-  (`gunkata/common/paths.py`); never re-implement the resolver locally.
-  Secrets come only from the environment, never committed.
-- **Every atom carries a single identity; aliases are forbidden.** The name a
-  thing is stored under is the name it is read under. Every alias is a mapping
-  somebody must maintain and eventually forgets. No guard: an alias is
-  invisible to a scanner that only ever reads one name at a time.
-- **Every served value is honest to the ground, and every failure is loud.**
-  A value a caller receives either was observed or is the declared consequence
-  of a stated policy — never a library default nobody chose. Loud means a
-  refusal naming the path it refused, never a plausible number that flows on.
-  No guard: whether a value was observed or is a policy's declared consequence
-  is a fact about the code path, not its text.
-- **Write nothing before its caller.** A constant, field, parameter, or hook
-  with no consumer is a guess nobody re-examines. Add the consumer in the same
-  commit, or do not add the code. The question is "what breaks today if I
-  leave it out". No guard: whether a new symbol already has a consumer is a
-  fact about the diff, not something a static scan resolves in general.
+- Every persistent path resolves through `Paths` in
+  `gunkata/common/paths.py`; nothing re-implements the resolver locally.
 - **A device's persisted settings load exactly once, in `Device.__init__`,
   and the environment outranks them.** Loading in `Adb` instead would charge a
   roster fan-out one file read per serial and let one device's stored values
@@ -372,51 +286,18 @@ confirm.
   `test_close_does_not_return_until_a_racing_close_has_reaped` and
   `test_a_racing_close_neither_swallows_a_failure_nor_invents_one` in
   `tests/test_stream.py`.
-- **When two concepts clash, pick the new one and wipe the old** — code,
-  tests, docs, wiring. Never demote the loser to a fallback or a compat layer.
-  No guard: recognizing which of two clashing concepts is newer is a
-  judgement call, not a pattern a scan can make.
-- **Reach a Protocol's implementations through a factory, never a registry
-  constant.** A hand-maintained tuple cannot fail when someone forgets to
-  extend it; a factory raises on an id it cannot resolve. No guard: which
-  construction path a caller takes is invisible to a scan of any single file.
-- **Measure before asserting, when measuring is cheap.** A claim about what
-  the data holds is checked, not reasoned to. When the measurement is
-  expensive, stop and ask, naming what you would measure, its cost, and what
-  each outcome would change. No guard: whether a claim was actually measured,
-  or only reasoned to, is a fact about how it was written, not its text.
-- **Any question about *code* goes to the language server; search is for
-  *text*.** Definitions, references, call graphs: LSP. String literals, env
-  vars, config keys, prose: `rg` (honors `.gitignore`; `grep -r` scans ignored
-  trees). Pyright needs a `[tool.pyright]` block in `pyproject.toml` or it
-  under-reports silently. `goToImplementation` is unsupported — Protocol
-  satisfiers have no tool. No guard: which tool answered a given question is
-  not recorded anywhere a scanner reads.
-- **Explain a cross-component problem with the data-flow graph, never prose
-  alone.** One node per component; mark what each *knows* and what it
-  *decides*. No guard: whether an explanation included a graph is a property
-  of prose, not of tracked code.
-- Inline comments answer "why", not "how". No meta-comments describing how the
-  code changed — that is what git is for.
 
 # Logging
 
-- Get a logger via stdlib `logging.getLogger(__name__)` at module level —
-  never a custom Logger class, never dependency-injected.
-- Never configure a handler, formatter, or level inside a module.
-  Configuration happens exactly once, in the CLI entry point, before any
-  subcommand runs. A module logs; the application configures.
-- Use the logger hierarchy for selective verbosity
-  (`logging.getLogger("<package>.<module>").setLevel(...)`); never invent a
-  parallel mechanism.
 - `$GUNKATA_LOG_LEVEL` sets the root logger's level, parsed by `LogSettings`
   and applied once by `gunkata.cli.logging_config.configure_logging` at the
   CLI entry point (`gunkata.cli.main:main`) -- both live together in
-  `cli/logging_config.py`, per the settings-colocation rule above, since
-  `configure_logging` is `LogSettings`' only consumer. Accepts either a bare
-  number or a level name (`DEBUG`, `INFO`, ...), case-insensitively; an
-  unrecognized value raises loudly rather than falling back to a default.
-  Guarded by `tests/cli/test_logging_config.py`.
+  `cli/logging_config.py`, per the settings-colocation rule under
+  `# Python Code Conventions`, since `configure_logging` is `LogSettings`'
+  only consumer. Accepts either a bare number or a level name (`DEBUG`,
+  `INFO`, ...), case-insensitively; an unrecognized value raises loudly
+  rather than falling back to a default. Guarded by
+  `tests/cli/test_logging_config.py`.
 - **As a library, gunkata configures nothing global.** Every module logger is
   `logging.getLogger(__name__)`, and every module lives under the `gunkata`
   package, so every logger is a descendant of `"gunkata"` by construction --
@@ -430,10 +311,6 @@ confirm.
   `__init__.py` holds no logic to attach one with. Guarded by
   `test_every_logger_descends_from_package_root` in
   `tests/test_logging_config.py`.
-- <Optionally: persist every record to a per-component `journal.jsonl` and
-  read it back through a `<tool> logs` CLI command — the one supported
-  observation surface. A monitoring gap means the logging is inadequate; fix
-  that rather than grepping files.>
 
 # CLI
 
@@ -474,10 +351,6 @@ confirm.
   `test_shell_command_honors_the_root_chdir_option` and
   `test_shell_attaches_in_the_root_chdir_option_when_no_command_is_given` in
   `tests/cli/test_shell.py`.
-- **A command body is presentation only** — parse args, call into
-  `gunkata.core`, render the result. No logic in the command; that lives in
-  core. No guard: whether a command module holds logic beyond parsing and
-  rendering is a judgement on its code, not a pattern to grep for.
 - **Marshalling user-facing syntax is a CLI concern, not core's.** Parsing a
   CLI-specific string format — an address expression, a name resolved to a
   pid — into the plain value a core class's method takes lives in the command's
@@ -692,32 +565,11 @@ name`/`device tag add`/`device tag remove`):
 
 # Python Code Conventions
 
-- Prefer `Protocol` over ABC when default method implementations are unlikely.
-- Always write class docstrings. Write method/function docstrings unless
-  trivial. A docstring that restates its own definition is worse than absent.
-- **Docstrings are Google-style, contract first and rationale last.** Summary
-  line, then `Args:`, `Returns:`, `Raises:`, then `Design:` for the why.
-  `Returns:` states the shape invariant and domain meaning, never the type —
-  the annotation already gives the type. Split contract from rationale at the
-  *clause*: a `because` inside a contract section is the tell a split was
-  missed. No guard: no linter in this repo parses docstring prose for a
-  misplaced rationale.
-- **A `Raises:` entry is `ExceptionName: condition.`** Prose passes every lint
-  and documents no exception at all. Document what a caller must catch,
-  including exceptions merely propagated. No guard: no linter in this repo
-  checks a `Raises:` entry against the exceptions a function actually raises.
-- OOP by default: no module-level functions unless the module is a
-  helper/utility collection.
-- One class per module. Exception: dataclasses tightly coupled to the class —
-  the schemas it directly consumes or produces.
 - **`__init__.py` holds no logic** — a package docstring only, at most re-exports
   of names defined in sibling modules. Code lives in a named module (a
   command's own module under `gunkata/cli/`), never in the package marker.
   No guard: no linter in this repo distinguishes a re-export from logic in
   an `__init__.py`.
-- Schema vs processor: a data schema goes in `types.py`; a processor gets its
-  own module. Schemas mirror dependency structure — if B exists only because
-  of A, nest B under A.
 - **A settings class is colocated with its sole consumer** — `ShellSettings`
   and `SuSettings` live in `shell.py`/`su.py` beside `Shell`/`Su`, `LogSettings`
   in `cli/logging_config.py` beside `configure_logging`. Once a second
@@ -726,58 +578,23 @@ name`/`device tag add`/`device tag remove`):
   `FridaSettings` serves both `FridaServer` and `ServerRepo` from
   `frida/settings.py`. No guard: whether a settings class has gained a
   second consumer is a fact about the import graph no CLAUDE.md rule tracks.
-- **One level of generic nesting is the limit — name the structure.** Good:
-  `list[str]`, `dict[str, int]`. Bad: `dict[int, list[tuple[set[str], int]]]`.
-  A data shape that needs more gets a `@dataclass`; a callable shape that
-  needs more than bare `Callable` gets a `Protocol` with a named `__call__`.
-  No guard: no linter in this repo counts generic nesting depth.
-- **Cohering arguments become a type.** When the same cluster of parameters
-  recurs across call sites and together describes one entity, introduce a
-  dataclass. Domain objects over loose primitives. No guard: recognizing a
-  recurring cluster of parameters as one entity is a judgement call.
-- **`if TYPE_CHECKING:` is forbidden — a cycle it would hide is a placement
-  error.** Move the type to `types.py` or a third module instead. No guard:
-  no linter in this repo forbids the `TYPE_CHECKING` import guard.
-- Absolute imports for anything above the current package; relative only for
-  siblings. All imports at module top; function-local only for a genuine
-  circular import or a legitimately lazy heavy dependency.
-- **Name a boolean after the state that carries consequence**; avoid negated
-  names (`is_not_x`, `disabled`). Put the positive name on the informative
-  state so `not x` never reads as a double negative. No guard: no linter in
-  this repo flags a negated boolean name.
-- **Never catch a bare `except Exception` unless justified** — narrow to what
-  you expect. A broad catch is only justified at a genuine resilience boundary
-  (one bad item must not sink the batch); even then, log the exception with
-  context and comment the justification. No guard: no linter in this repo is
-  configured to flag a bare `except Exception`.
 
 # Tests
 
-- `pytest` exclusively. Never import `unittest` — use `pytest.raises`,
-  fixtures, `monkeypatch`, `tmp_path`, `capsys`, `caplog`.
-- Non-trivial tests carry a docstring: WHAT is tested, WHY, and the expected
-  outcome. Trivial tests whose name says it all need none.
 - **Every test gets an isolated `GUNKATA_ROOT`.** Guarded by the autouse
   `isolated_gunkata_root` fixture in `tests/conftest.py`, whose docstring says
   why. A test that reads the developer's own persisted device settings passes
   or fails according to whose machine ran it; an emulator test that needs a
   setting stores it under `tmp_path` itself, as
   `test_completes_against_real_device` does.
-- Do not test API conformance (that a method returns a given type, that a
-  class has a field).
 
 # Definition of Done
 
-A change is done when the **whole** suite is green — never just the package's:
+A change is done when this is green:
 
 ```bash
 scripts/check.sh
 ```
-
-The per-module run is the inner loop, not the gate — two failure classes are
-invisible to it: construction/wiring (guard with a smoke test per CLI
-command), and cross-package invariants (a rule stated in one package is
-routinely guarded in another).
 
 **Every gate this repo has is run from `scripts/check.sh`: ruff, then an
 `mkdocs build --strict`, then the suite.** When there is no CI, this script
@@ -797,25 +614,6 @@ double (`_SpyAdb`, `_FakeShell`, `_FakeDevice`, ...) fails it today, since
 `Protocol`; the maintainer owns introducing those Protocols before this
 script gains a fourth stage. No guard: which pre-existing findings are
 accepted debt versus a regression is a judgement only a diff review makes.
-
-# Branches & Worktrees
-
-- **Never check out a branch in the root checkout — always use a worktree.**
-  Switching branches at the root silently redirects every subsequent edit.
-  No guard: by the time a pre-commit hook fires, the checkout has already
-  happened and the damage is done.
-- **Create worktrees under `.claude/worktrees/`, never as a sibling of the
-  repo.** A sibling directory (`../gunkata-<branch>`) is easy to lose track
-  of and easy to `rm -rf` by mistake when tidying up the parent directory.
-  No guard: a sibling directory is outside this repository, where none of
-  its hooks run.
-- **A feature gets a branch and a worktree; the gate is the merge, not the
-  commit.** Commit to the branch freely; never merge into the default branch
-  without being asked. "Commit this" is not "merge this". No guard: which
-  merges were asked for is known only to the person who asked; a hook cannot
-  tell a sanctioned merge from a stray one.
-- Verify the base ref before creating a worktree; confirm the current branch
-  before committing.
 
 # Publishing
 

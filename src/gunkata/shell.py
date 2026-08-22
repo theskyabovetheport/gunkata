@@ -103,7 +103,7 @@ class StreamConsumedError(RuntimeError):
 
 
 # _reap, _read_stderr, and the two timing constants below are module-level
-# rather than methods, departing from CLAUDE.md's "OOP by default" rule on
+# rather than methods, departing from the OOP-by-default convention on
 # purpose: Stream and Shell.pull_tree are two owners of one process each,
 # sharing one terminate -> grace -> kill policy, and there is no state to
 # hang the functions on -- a class wrapping them would exist only to satisfy
