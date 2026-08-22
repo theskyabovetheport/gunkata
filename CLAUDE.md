@@ -790,6 +790,14 @@ running them separately, `uv run pytest -m emulator` against a device
 target. No guard: which tests are marked `emulator` is a fact about the
 suite, not about this script.
 
+**`scripts/check.sh` does not run `pyright`, though `[tool.pyright]` is
+configured** — `uv run pyright` is clean against `src/`, but every test
+double (`_SpyAdb`, `_FakeShell`, `_FakeDevice`, ...) fails it today, since
+`Adb`/`Shell`/`Device`/etc. are typed by their concrete class rather than a
+`Protocol`; the maintainer owns introducing those Protocols before this
+script gains a fourth stage. No guard: which pre-existing findings are
+accepted debt versus a regression is a judgement only a diff review makes.
+
 # Branches & Worktrees
 
 - **Never check out a branch in the root checkout — always use a worktree.**

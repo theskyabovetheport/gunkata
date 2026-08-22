@@ -85,7 +85,8 @@ class FridaServer:
         assume_running: bool | None = None,
         settings: FridaSettings | None = None,
     ):
-        settings = settings if settings is not None else FridaSettings()
+        # pyright can't see the env-backed default through validation_alias.
+        settings = settings if settings is not None else FridaSettings()  # pyright: ignore
         if device_path is None:
             device_path = settings.device_path
         if port is None:
@@ -243,7 +244,7 @@ class FridaServer:
 
     def get_device(
         self, timeout: float | None = None, poll: float | None = None
-    ) -> "frida.core.Device":  # noqa: F821 -- optional dep, reached only via import_frida()
+    ) -> "frida.core.Device":  # noqa: F821 -- optional dep  # pyright: ignore
         """Get the connected frida device for this server's serial, once it answers.
 
         Args:

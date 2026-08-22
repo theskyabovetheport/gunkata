@@ -271,7 +271,7 @@ def _prefer_nospace_shell_completers() -> None:
             cls = _NoSpaceZshComplete
         return add_completion_class(cls, name)
 
-    _typer_completion_classes.add_completion_class = _add_completion_class
+    _typer_completion_classes.add_completion_class = _add_completion_class  # pyright: ignore
 
 
 _prefer_nospace_shell_completers()

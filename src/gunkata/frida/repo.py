@@ -109,7 +109,8 @@ class ServerRepo:
         downloader: BinaryDownloader | None = None,
     ):
         self._repo = repo
-        self._settings = settings if settings is not None else FridaSettings()
+        # pyright can't see the env-backed default through validation_alias.
+        self._settings = settings if settings is not None else FridaSettings()  # pyright: ignore
         self._downloader = (
             downloader if downloader is not None else BinaryDownloader()
         )

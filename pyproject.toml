@@ -34,10 +34,14 @@ frida = ["frida>=16"]
 gunkata = "gunkata.cli.main:main"
 
 [dependency-groups]
-dev = ["pytest>=8.3", "ruff>=0.16", "mkdocs>=1.6"]
+dev = ["pytest>=8.3", "ruff>=0.16", "mkdocs>=1.6", "pyright>=1.1"]
 
 [tool.pytest.ini_options]
 markers = ["emulator: requires a live adb-attached Android device"]
+
+[tool.pyright]
+include = ["src", "tests", "scripts"]
+pythonVersion = "3.12"
 
 [tool.ruff]
 target-version = "py312"

@@ -144,7 +144,8 @@ class Xephyr:
     ):
         self._title = title
         self._placeholder = placeholder
-        self._settings = settings if settings is not None else ScrcpySettings()
+        # pyright can't see the env-backed default through validation_alias.
+        self._settings = settings if settings is not None else ScrcpySettings()  # pyright: ignore
         self._process: subprocess.Popen | None = None
         self._matchbox_process: subprocess.Popen | None = None
         self._placeholder_processes: list[subprocess.Popen] = []
@@ -451,7 +452,7 @@ class Xephyr:
         return False
 
     def _start_matchbox(self) -> None:
-        env = dict(os.environ, DISPLAY=self._display)
+        env = dict(os.environ, DISPLAY=self.display)
         argv = [self._settings.matchbox_binary, "-use_titlebar", "no"]
         try:
             self._matchbox_process = subprocess.Popen(argv, env=env)

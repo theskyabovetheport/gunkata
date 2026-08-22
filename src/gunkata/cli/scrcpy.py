@@ -55,8 +55,11 @@ def scrcpy(ctx: typer.Context) -> None:
     The frame opens at this display's own size and is resized by whatever
     manages it, so there is no size to pass here.
     """
+    # pyright can't see ScrcpySettings' env-backed defaults through validation_alias.
     session = ScrcpySession(
-        Device(), settings=ScrcpySettings(), extra_args=list(ctx.args)
+        Device(),
+        settings=ScrcpySettings(),  # pyright: ignore[reportCallIssue]
+        extra_args=list(ctx.args),
     )
     # SIGTERM (a plain `kill`) and SIGHUP (a closed terminal) have no default
     # translation into a Python exception the way SIGINT's default handler

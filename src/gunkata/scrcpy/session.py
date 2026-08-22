@@ -61,7 +61,8 @@ class ScrcpySession:
     ):
         self._device = device
         self._repo = repo if repo is not None else scrcpy_repo()
-        self._settings = settings if settings is not None else ScrcpySettings()
+        # pyright can't see the env-backed default through validation_alias.
+        self._settings = settings if settings is not None else ScrcpySettings()  # pyright: ignore
         self._extra_args = extra_args if extra_args is not None else []
 
     def run(self) -> None:

@@ -410,7 +410,8 @@ class Shell:
         """
         self._adb = adb
         self.su = su
-        self.user = (settings or ShellSettings()).resolve_user(user)
+        # pyright can't see the env-backed default through validation_alias.
+        self.user = (settings or ShellSettings()).resolve_user(user)  # pyright: ignore
 
     @property
     def serial(self) -> str:
@@ -783,6 +784,7 @@ class Shell:
             parent=path.parent, pattern=path.name, missing_rc=self._MISSING_FILE_RC
         )
         process, stderr_file = self._spawn(command)
+        assert process.stdout is not None, "_spawn always passes stdout=PIPE"
         extractor = TarExtractor(ldir)
         broken: tarfile.TarError | None = None
         try:

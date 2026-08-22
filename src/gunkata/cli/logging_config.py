@@ -57,7 +57,8 @@ class LogSettings(BaseSettings):
 
     @classmethod
     def from_env(cls) -> "LogSettings":
-        return cls()
+        # pyright can't see the env-backed default through validation_alias.
+        return cls()  # pyright: ignore[reportCallIssue]
 
 
 def configure_logging() -> None:
