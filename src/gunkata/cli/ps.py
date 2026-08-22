@@ -2,22 +2,22 @@
 
 import typer
 
-from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.cli.tty import stdout_is_tty
 from gunkata.device import Device
+from gunkata.ps import Ps
 
 
 @app.command()
 def ps() -> None:
-    """List the device's running processes.
+    """List the device's running processes as PID and NAME.
 
-    Design:
-        Aligned two-column output with a header when stdout is a terminal;
-        unaligned "pid name" -- one predictable separator, no column widths
-        that shift with the data -- when it's piped elsewhere.
+    Prints an aligned table with a header on a terminal, and plain
+    "pid name" lines when piped elsewhere.
     """
-    entries = Device(Adb()).ps().entries()
+    # Piped output stays unaligned on purpose: one predictable separator, and
+    # no column widths that shift with the data a reader has to parse.
+    entries = Ps(Device().shell()).entries()
     if stdout_is_tty():
         pid_width = max([len("PID")] + [len(str(entry.pid)) for entry in entries])
         typer.echo(f"{'PID':<{pid_width}}  NAME")

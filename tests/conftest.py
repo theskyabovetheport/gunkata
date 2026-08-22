@@ -31,7 +31,20 @@ def _attached_serial() -> str | None:
         return None
 
 
+@pytest.fixture(autouse=True)
+def isolated_gunkata_root(tmp_path, monkeypatch):
+    """Point GUNKATA_ROOT at an empty directory for every test.
+
+    Device resolves its su configuration from the settings persisted under
+    GUNKATA_ROOT, so without this a developer who has run `gunkata device env
+    --edit` to set GUNKATA_SHELL_DEFAULT_USER=root against their own emulator
+    would see this suite's default-user assertions flip -- the tests would
+    pass or fail depending on whose machine ran them.
+    """
+    monkeypatch.setenv("GUNKATA_ROOT", str(tmp_path / "gunkata-root"))
+
+
 @pytest.fixture
 def device() -> Device:
     """A Device bound to the sole live adb-attached serial. Emulator tests only."""
-    return Device(Adb())
+    return Device()

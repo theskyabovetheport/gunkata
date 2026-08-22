@@ -5,12 +5,11 @@ from pathlib import Path
 
 import typer
 
-from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.cli.completion import complete_process_name
 from gunkata.cli.hexaddr import parse_hex_address_expr
 from gunkata.device import Device
-from gunkata.memory import UnmappedRangeError
+from gunkata.memory import Memory, UnmappedRangeError
 from gunkata.procmaps import AmbiguousProcessError, NoSuchProcessError
 
 mem_app = typer.Typer(
@@ -19,9 +18,6 @@ mem_app = typer.Typer(
 )
 app.add_typer(mem_app, name="mem")
 
-_MEM_USER_OPTION = typer.Option(
-    None, "-U", help="Run as this user, via su (default: root if su is available, else shell)."
-)
 _MEM_PID_OPTION = typer.Option(None, "-p", help="Target this pid.")
 _MEM_NAME_OPTION = typer.Option(
     None,
@@ -111,27 +107,21 @@ def mem_read(
     end: str = typer.Option(..., "-e", help="End address (exclusive), same syntax as -s."),
     pid: int = _MEM_PID_OPTION,
     name: str = _MEM_NAME_OPTION,
-    user: str = _MEM_USER_OPTION,
 ) -> None:
-    """Read [start, end) from a process's memory.
+    """Read a process's memory from -s up to, but not including, -e.
 
-    With neither -p nor -P, the pid comes from stdin.
+    Target the process with -p or -P; with neither, one pid is read from
+    stdin, as `gunkata pidof` prints it.
 
-    Raw bytes go to stdout when it's piped elsewhere; a hex dump when
-    stdout is a terminal.
-
-    Raises:
-        typer.Exit: both -p and -P were given; -P matched zero or more than
-            one process; neither was given and stdin didn't hold exactly one
-            pid; -s/-e failed to parse; or the resolved range isn't fully
-            mapped in the process.
+    Prints a hex dump on a terminal, and writes raw bytes when piped
+    elsewhere.
     """
-    device = Device(Adb())
+    device = Device()
     target_pid = _resolve_mem_pid(device, pid, name)
     start_addr = _parse_mem_address_expr(start)
     end_addr = _parse_mem_address_expr(end)
     try:
-        data = device.memory(target_pid, user=user).read(start_addr, end_addr)
+        data = Memory(device.shell(), target_pid).read(start_addr, end_addr)
     except (ValueError, UnmappedRangeError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)
@@ -150,25 +140,22 @@ def mem_write(
     ),
     pid: int = _MEM_PID_OPTION,
     name: str = _MEM_NAME_OPTION,
-    user: str = _MEM_USER_OPTION,
 ) -> None:
-    """Write file's bytes into a process's memory at start.
+    """Write a local file's bytes into a process's memory at -s.
 
-    With neither -p nor -P, the pid comes from stdin.
+    Target the process with -p or -P; with neither, one pid is read from
+    stdin, as `gunkata pidof` prints it.
 
-    Raises:
-        typer.Exit: both -p and -P were given; -P matched zero or more than
-            one process; neither was given and stdin didn't hold exactly one
-            pid; -s/-e failed to parse; the write would cross the given -e;
-            or the resolved range isn't fully mapped in the process.
+    With -e, a write that would reach past that address is refused instead
+    of truncated.
     """
-    device = Device(Adb())
+    device = Device()
     target_pid = _resolve_mem_pid(device, pid, name)
     start_addr = _parse_mem_address_expr(start)
     end_addr = _parse_mem_address_expr(end) if end is not None else None
     data = file.read_bytes()
     try:
-        device.memory(target_pid, user=user).write(start_addr, data, end_addr)
+        Memory(device.shell(), target_pid).write(start_addr, data, end_addr)
     except (ValueError, UnmappedRangeError) as exc:
         typer.echo(str(exc), err=True)
         raise typer.Exit(1)

@@ -9,6 +9,7 @@ authors = [{ name = "Finn", email = "theskyabovetheport@bratanmail.com" }]
 requires-python = ">=3.12"
 dependencies = [
     "pydantic-settings>=2.15.0",
+    "python-xlib>=0.33",
     "pyyaml>=6.0",
     "typer>=0.12",
 ]
@@ -25,6 +26,9 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/theskyabovetheport/gunkata"
 Repository = "https://github.com/theskyabovetheport/gunkata"
+
+[project.optional-dependencies]
+frida = ["frida>=16"]
 
 [project.scripts]
 gunkata = "gunkata.cli.main:main"

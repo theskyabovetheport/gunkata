@@ -7,8 +7,8 @@ import time
 
 import pytest
 
-from gunkata.stream import Stream, StreamConsumedError
-from gunkata.types import ShellError
+from gunkata import shell as shell_module
+from gunkata.shell import ShellError, Stream, StreamConsumedError
 
 _FOREVER = "while :; do echo tick; sleep 0.05; done"
 _IGNORES_TERM = "trap '' TERM; while :; do echo tick; sleep 0.05; done"
@@ -138,6 +138,76 @@ def test_close_from_another_thread_ends_the_loop_without_raising():
     assert stream._process.returncode == -signal.SIGTERM
 
 
+def _pause_inside_reap(monkeypatch) -> tuple[threading.Event, threading.Event]:
+    """Patch _reap so one caller can be pinned inside it while another runs.
+
+    Returns:
+        The event set once a reap has begun, and the event that releases it.
+
+    Design:
+        Call this only after the stream exists: __init__ passes _reap to
+        weakref.finalize by value, so a stream built beforehand keeps the real
+        one for its finalizer, while close() -- which looks the global up when
+        it runs -- picks up the patched one.
+    """
+    reaping = threading.Event()
+    finish = threading.Event()
+    real_reap = shell_module._reap
+
+    def blocking_reap(process, stderr_file, grace):
+        reaping.set()
+        finish.wait(5)
+        return real_reap(process, stderr_file, grace)
+
+    monkeypatch.setattr(shell_module, "_reap", blocking_reap)
+    return reaping, finish
+
+
+def test_close_does_not_return_until_a_racing_close_has_reaped(monkeypatch):
+    """close() returning must mean the process was waited on, for every caller.
+
+    Stream offers close as callable from another thread, so two threads reach
+    it over one process. A second caller that returned on the _closed flag
+    alone would leave the reader looking at a returncode of None, a _stopped
+    still False, and no stderr.
+    """
+    stream = _stream("echo one; echo went wrong >&2; exit 3")
+    reaping, finish = _pause_inside_reap(monkeypatch)
+    closer = threading.Thread(target=stream.close)
+    closer.start()
+    assert reaping.wait(5), "the closing thread never entered _reap"
+    threading.Timer(0.3, finish.set).start()
+
+    stream.close()
+
+    assert stream._process.returncode == 3
+    assert "went wrong" in stream._stderr
+    closer.join(5)
+
+
+def test_a_racing_close_neither_swallows_a_failure_nor_invents_one(monkeypatch):
+    """The reader's verdict must be the command's own, never an artifact of timing.
+
+    Reading the stale returncode of None as a failure reports rc=None with no
+    stderr, a value ShellError never means to carry; reading it as success
+    discards a command that genuinely exited 3. Both are wrong, so this pins
+    the real status and the real stderr reaching the caller.
+    """
+    stream = _stream("echo one; echo went wrong >&2; exit 3")
+    reaping, finish = _pause_inside_reap(monkeypatch)
+    closer = threading.Thread(target=stream.close)
+    closer.start()
+    assert reaping.wait(5), "the closing thread never entered _reap"
+    threading.Timer(0.3, finish.set).start()
+
+    with pytest.raises(ShellError) as raised:
+        with stream:
+            pass
+    assert raised.value.rc == 3
+    assert "went wrong" in raised.value.stderr
+    closer.join(5)
+
+
 def test_close_from_inside_the_loop_ends_it_without_raising():
     """Closing under a live read must end that read, never break it.
 
@@ -151,7 +221,7 @@ def test_close_from_inside_the_loop_ends_it_without_raising():
 
 def test_a_command_that_ignores_sigterm_is_killed(monkeypatch):
     """A trapped SIGTERM must not strand the reader in a finally block."""
-    monkeypatch.setattr(Stream, "_TERMINATE_GRACE_SECONDS", 0.5)
+    monkeypatch.setattr(shell_module, "_TERMINATE_GRACE_SECONDS", 0.5)
     stream = _stream(_IGNORES_TERM)
     for _ in stream:
         break

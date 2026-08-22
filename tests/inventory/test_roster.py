@@ -2,9 +2,9 @@ import subprocess
 
 from gunkata.adb import AdbDeviceEntry
 from gunkata.common.paths import Paths
-from gunkata.device_config import ListConfig
-from gunkata.device_info import DeviceInfoStore
-from gunkata.device_roster import DeviceRoster
+from gunkata.inventory.info import DeviceInfoStore
+from gunkata.inventory.list_config import ListConfig
+from gunkata.inventory.roster import DeviceRoster
 
 
 class _FakeAdb:

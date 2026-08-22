@@ -2,7 +2,7 @@ import pytest
 
 from gunkata.memory import Memory, UnmappedRangeError
 from gunkata.procmaps import ProcMaps
-from gunkata.types import ShellError
+from gunkata.shell import ShellError
 
 
 class _FakeShell:
@@ -41,12 +41,12 @@ _MAPS = (
 
 def _memory(**shell_kwargs) -> Memory:
     shell = _FakeShell(**shell_kwargs)
-    return Memory(shell, pid=1234, procmaps=ProcMaps(shell))
+    return Memory(shell, pid=1234)
 
 
 def test_read_returns_bytes_for_a_fully_mapped_range():
     shell = _FakeShell(maps=_MAPS, read_result=b"payload")
-    memory = Memory(shell, pid=1234, procmaps=ProcMaps(shell))
+    memory = Memory(shell, pid=1234)
     assert memory.read(0x7F0000000000, 0x7F0000000007) == b"payload"
     assert shell.read_commands == [
         f"dd if=/proc/1234/mem bs=1 skip={0x7F0000000000} count=7"
@@ -81,7 +81,7 @@ def test_read_propagates_shell_error_from_the_underlying_dd():
 
 def test_write_sends_data_to_a_fully_mapped_range():
     shell = _FakeShell(maps=_MAPS)
-    memory = Memory(shell, pid=1234, procmaps=ProcMaps(shell))
+    memory = Memory(shell, pid=1234)
     memory.write(0x7F0000000000, b"hi")
     assert shell.write_calls == [
         (f"dd of=/proc/1234/mem bs=1 seek={0x7F0000000000} conv=notrunc", b"hi")
@@ -108,7 +108,7 @@ def test_write_raises_value_error_when_data_would_exceed_the_given_end():
 
 def test_write_within_the_given_end_succeeds():
     shell = _FakeShell(maps=_MAPS)
-    memory = Memory(shell, pid=1234, procmaps=ProcMaps(shell))
+    memory = Memory(shell, pid=1234)
     memory.write(0x7F0000000000, b"hi", end=0x7F0000000010)
     assert shell.write_calls == [
         (f"dd of=/proc/1234/mem bs=1 seek={0x7F0000000000} conv=notrunc", b"hi")
@@ -125,11 +125,11 @@ def test_read_write_round_trip_against_real_device(device):
     # the child would block capture_output's read until sleep itself exits.
     pid = int(shell.check_sh("sleep 300 >/dev/null 2>&1 & echo $!").stdout)
     try:
-        maps = device.procmaps().by_pid(pid).decode("utf-8", errors="replace")
+        maps = ProcMaps.by_pid(shell, pid).raw.decode("utf-8", errors="replace")
         region = next(line for line in maps.splitlines() if " rw-p " in line)
         start = int(region.split("-")[0], 16)
 
-        memory = device.memory(pid)
+        memory = Memory(shell, pid)
         payload = b"gunkata memory round trip\n"
         memory.write(start, payload)
         assert memory.read(start, start + len(payload)) == payload

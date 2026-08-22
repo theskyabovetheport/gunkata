@@ -1,9 +1,10 @@
 """Per-serial metadata a user attaches locally: a name, tags, and a note log.
 
-Each kind lives in its own plain-text file under GUNKATA_ROOT/devices/info/ --
-`<serial>-name`, `<serial>-tags`, `<serial>-note` -- one lane per file rather
-than one shared document, so tagging a device can never race a concurrent
-rename of it, and each file reads exactly as it looks with `cat`.
+Each kind lives in its own plain-text file under GUNKATA_ROOT/devices/<serial>/
+-- `name`, `tags`, `note` -- one lane per file rather than one shared document,
+so tagging a device can never race a concurrent rename of it, and each file
+reads exactly as it looks with `cat`. See gunkata.device.DeviceSettingsStore
+for that same serial directory's `settings` file.
 """
 
 from dataclasses import dataclass

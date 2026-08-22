@@ -5,7 +5,7 @@ import uuid
 import pytest
 
 from gunkata.logcat import Level, Logcat
-from gunkata.types import ShellError
+from gunkata.shell import ShellError
 
 # Real lines taken verbatim from a live emulator; each pins a shape the
 # threadtime format actually produces.
@@ -205,9 +205,36 @@ def test_follow_for_refuses_a_non_positive_timeout():
 
 @pytest.mark.emulator
 def test_dump_against_real_device_is_finite(device):
-    """follow=False must end on its own, and -t must bound what comes back."""
-    entries = list(device.logcat(tail=5, follow=False))
-    assert 0 < len(entries) <= 5
+    """follow=False must end on its own rather than tailing forever.
+
+    Reaching the assertion at all is the claim; a regression mapping
+    follow=False onto -T would hang here instead. No upper bound goes with it:
+    -t bounds the buffer window logcat reads, not the records it emits, and
+    that window moves, so `-t 5` yielding 6 is logcat behaving normally. That
+    -t reaches the command at all is pinned off-device, and deterministically,
+    by test_not_following_dumps_and_stops.
+    """
+    assert list(Logcat(device.shell(), tail=5, follow=False))
+
+
+@pytest.mark.emulator
+def test_a_filtered_dump_returns_every_record_written_under_its_tag(device):
+    """The one record count a device test can pin exactly, end to end.
+
+    Nothing else on the device writes this tag, so a whole-buffer dump
+    filtered to it holds exactly what this test wrote, in order. A `-t N` dump
+    cannot serve: N bounds a window over the raw buffer and filtering happens
+    after it, so device chatter pushes these records out -- measured returning
+    4, then 2, then 0 of 20 as the buffer moved, while the filtered
+    whole-buffer dump returned all 20 every time.
+    """
+    tag = f"gunkata_{uuid.uuid4().hex[:8]}"
+    shell = device.shell()
+    written = [f"probe-{i}" for i in range(20)]
+    for message in written:
+        shell(f"log -t {tag} {message}")
+    entries = list(Logcat(shell, tail=None, follow=False, tags={tag: Level.I}))
+    assert [entry.message for entry in entries] == written
 
 
 @pytest.mark.emulator
@@ -217,7 +244,7 @@ def test_every_line_of_a_large_dump_parses(device):
     Any line matching neither a record nor a marker raises LogcatParseError out
     of the iterator, so reaching the assertion at all is the coverage claim.
     """
-    entries = list(device.logcat(tail=2000, follow=False))
+    entries = list(Logcat(device.shell(), tail=2000, follow=False))
     assert len(entries) > 100
 
 
@@ -241,7 +268,7 @@ def test_yields_an_entry_logged_after_iteration_started(device):
     found = False
     try:
         deadline = time.monotonic() + 60
-        for entry in device.logcat():
+        for entry in Logcat(device.shell()):
             if entry.tag == marker:
                 found = True
                 break
@@ -258,7 +285,7 @@ def test_breaking_out_reaps_the_remote_logcat(device):
     """Killing the local adb process must reap logcat on the device too."""
     shell = device.shell()
     before = len(shell.pidof("logcat"))
-    for _ in device.logcat(tail=50):
+    for _ in Logcat(device.shell(), tail=50):
         break
     for _ in range(20):
         if len(shell.pidof("logcat")) <= before:
@@ -270,7 +297,7 @@ def test_breaking_out_reaps_the_remote_logcat(device):
 @pytest.mark.emulator
 def test_a_logcat_that_fails_on_its_own_is_loud(device, monkeypatch):
     """A non-zero exit must survive the su wrapping and reach the caller."""
-    spec = device.logcat()
+    spec = Logcat(device.shell())
     monkeypatch.setattr(spec, "command", lambda: "logcat -d -b nosuchbuffer")
     with pytest.raises(ShellError) as raised:
         list(spec)

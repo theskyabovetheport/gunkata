@@ -2,28 +2,24 @@
 
 import typer
 
-from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.cli.completion import complete_process_name
 from gunkata.cli.fzf import fzf_pick_pid
 from gunkata.device import Device
+from gunkata.ps import Ps
 
 
 @app.command()
 def pidof(
     name: str = typer.Argument(None, autocompletion=complete_process_name),
 ) -> None:
-    """Print the pid(s) of every process matching name.
+    """Print the pid of every process matching a name, one per line.
 
-    With no argument, fuzzy-pick the process via fzf instead.
-
-    Raises:
-        typer.Exit: name matched no running process; or no argument was
-            given and fzf is missing or the picker was exited without a pick.
+    With no name, picks a process interactively with fzf instead.
     """
-    device = Device(Adb())
+    device = Device()
     if name is None:
-        pid = fzf_pick_pid(device.ps().entries())
+        pid = fzf_pick_pid(Ps(device.shell()).entries())
         if pid is None:
             raise typer.Exit(1)
         typer.echo(pid)

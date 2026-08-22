@@ -1,3 +1,4 @@
+import importlib
 import subprocess
 
 from typer.testing import CliRunner
@@ -5,6 +6,10 @@ from typer.testing import CliRunner
 from gunkata import localedit
 from gunkata.cli import edit as edit_cli
 from gunkata.cli.app import app
+
+# The `gunkata.device` attribute is the package's device() factory function,
+# which shadows the submodule of the same name, so it has to be imported by name.
+device_mod = importlib.import_module("gunkata.device")
 
 
 class _EditFakeAdb:
@@ -47,7 +52,7 @@ def _editor_that_writes(new_content: bytes):
 def test_edit_writes_back_a_changed_file(monkeypatch):
     """Editing a file that already exists must not chown it -- see Edit.run's design note."""
     fake = _EditFakeAdb(content=b"old\n")
-    monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(localedit.subprocess, "run", _editor_that_writes(b"new\n"))
     result = CliRunner().invoke(
         app, ["edit", "/data/local/tmp/foo", "--editor", "fake-editor"]
@@ -62,7 +67,7 @@ def test_edit_creating_a_missing_file_chowns_it_to_its_parent_dir(monkeypatch):
     """create-on-write must inherit the parent directory's owner -- a fresh inode is
     otherwise owned by whichever user ran the write, not the app that owns the dir."""
     fake = _EditFakeAdb(read_ok=False)
-    monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(localedit.subprocess, "run", _editor_that_writes(b"created\n"))
     result = CliRunner().invoke(
         app, ["edit", "/data/local/tmp/new", "--editor", "fake-editor"]
@@ -76,7 +81,7 @@ def test_edit_creating_a_missing_file_chowns_it_to_its_parent_dir(monkeypatch):
 
 def test_edit_reports_unchanged_without_writing(monkeypatch):
     fake = _EditFakeAdb(content=b"same\n")
-    monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(localedit.subprocess, "run", _editor_that_writes(b"same\n"))
     result = CliRunner().invoke(
         app, ["edit", "/data/local/tmp/foo", "--editor", "fake-editor"]
@@ -88,7 +93,7 @@ def test_edit_reports_unchanged_without_writing(monkeypatch):
 
 def test_edit_exits_loudly_when_no_editor_is_configured(monkeypatch):
     fake = _EditFakeAdb(content=b"old\n")
-    monkeypatch.setattr(edit_cli, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.delenv("VISUAL", raising=False)
     monkeypatch.delenv("EDITOR", raising=False)
     result = CliRunner().invoke(app, ["edit", "/data/local/tmp/foo"])

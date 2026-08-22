@@ -1,4 +1,4 @@
-"""The device-list column spec: extra columns `device list`/`device select` show.
+"""The device-list column spec: extra columns `gunkata devices` shows.
 
 Ledger-style (see the `ledger` device-tracking tool's `props.yaml`): each
 column is named and read via a getter, parsed from one YAML file rather than
@@ -8,8 +8,8 @@ else's* device; gunkata's list-config.yaml only ever runs against devices its
 own operator's adb can already reach, so `shell:` stays as the flexibility
 valve, and there is no `builtin:` kind at all. Local device identity (name,
 tags, adb state) isn't something a shell command or a device property could
-produce anyway, so `device list`/`device select` show it as fixed columns
-ahead of anything this file declares -- see gunkata.device_roster.
+produce anyway, so `gunkata devices` shows it as fixed columns
+ahead of anything this file declares -- see gunkata.inventory.roster.
 """
 
 from dataclasses import dataclass
@@ -115,5 +115,15 @@ class ListConfig:
         Raises:
             ListConfigError: the file exists but is malformed.
         """
-        body = path.read_text() if path.exists() else DEFAULT_LIST_CONFIG_YAML
-        return cls.parse(body)
+        return cls.parse(cls.read_body(path))
+
+    @staticmethod
+    def read_body(path: Path) -> str:
+        """The raw list-config.yaml text, or the built-in default if it doesn't exist yet.
+
+        Design:
+            Split out of `load` so `gunkata devices --edit` can seed an editor
+            with exactly what `load` would have parsed, without parsing it
+            first -- an editor buffer needs the raw text, not a ListConfig.
+        """
+        return path.read_text() if path.exists() else DEFAULT_LIST_CONFIG_YAML

@@ -1,7 +1,6 @@
 """A device process's memory, read and written through /proc/<pid>/mem."""
 
 from .procmaps import ProcMaps
-from .procmaps_parser import ProcMapsParser
 from .shell import Shell
 
 
@@ -28,7 +27,6 @@ class Memory:
         shell: Shell the underlying dd commands run under; its user decides
             which processes' memory is accessible.
         pid: Process whose memory this operates on.
-        procmaps: Where this process's mapped regions are read from.
 
     Design:
         Every read and write is checked against a freshly-read
@@ -44,10 +42,9 @@ class Memory:
         working the same on every dd this device might ship.
     """
 
-    def __init__(self, shell: Shell, pid: int, procmaps: ProcMaps):
+    def __init__(self, shell: Shell, pid: int):
         self._shell = shell
         self._pid = pid
-        self._procmaps = procmaps
 
     def read(self, start: int, end: int) -> bytes:
         """Read the byte range [start, end) from this process's memory.
@@ -117,6 +114,5 @@ class Memory:
 
     def _regions(self) -> list[tuple[int, int]]:
         """This process's mapped regions, as [start, end) pairs sorted by start."""
-        raw = self._procmaps.by_pid(self._pid)
-        mappings = ProcMapsParser(raw.decode("utf-8", errors="replace")).mappings()
+        mappings = ProcMaps.by_pid(self._shell, self._pid).mappings()
         return sorted((mapping.start, mapping.end) for mapping in mappings)

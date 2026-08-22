@@ -1,9 +1,14 @@
+import importlib
 import subprocess
 
 from typer.testing import CliRunner
 
 from gunkata.cli import fzf, pidof
 from gunkata.cli.app import app
+
+# The `gunkata.device` attribute is the package's device() factory function,
+# which shadows the submodule of the same name, so it has to be imported by name.
+device_mod = importlib.import_module("gunkata.device")
 
 
 class _PidofFakeAdb:
@@ -29,7 +34,7 @@ class _PidofFakeAdb:
 
 def test_pidof_prints_every_pid_matching_the_given_name(monkeypatch):
     fake = _PidofFakeAdb(pidof_output="1234 5678\n")
-    monkeypatch.setattr(pidof, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(app, ["pidof", "com.example.app"])
     assert result.exit_code == 0
     assert result.output.splitlines() == ["1234", "5678"]
@@ -37,7 +42,7 @@ def test_pidof_prints_every_pid_matching_the_given_name(monkeypatch):
 
 def test_pidof_errors_when_name_matches_no_process(monkeypatch):
     fake = _PidofFakeAdb(pidof_output="")
-    monkeypatch.setattr(pidof, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(app, ["pidof", "no.such.app"])
     assert result.exit_code == 1
 
@@ -46,7 +51,7 @@ def test_pidof_launches_fzf_and_prints_the_picked_pid(monkeypatch):
     fake = _PidofFakeAdb(
         ps_output="USER  PID  PPID S NAME\nu0_a1 1234 567  S com.example.app\n",
     )
-    monkeypatch.setattr(pidof, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(fzf.shutil, "which", lambda name: "/usr/bin/fzf")
     monkeypatch.setattr(
         fzf.subprocess,
@@ -60,7 +65,7 @@ def test_pidof_launches_fzf_and_prints_the_picked_pid(monkeypatch):
 
 def test_pidof_exits_when_fzf_is_missing(monkeypatch):
     fake = _PidofFakeAdb()
-    monkeypatch.setattr(pidof, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(fzf.shutil, "which", lambda name: None)
     result = CliRunner().invoke(app, ["pidof"])
     assert result.exit_code == 1

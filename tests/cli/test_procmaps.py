@@ -1,9 +1,14 @@
+import importlib
 import subprocess
 
 from typer.testing import CliRunner
 
 from gunkata.cli import fzf, procmaps
 from gunkata.cli.app import app
+
+# The `gunkata.device` attribute is the package's device() factory function,
+# which shadows the submodule of the same name, so it has to be imported by name.
+device_mod = importlib.import_module("gunkata.device")
 
 
 class _ProcmapsFakeAdb:
@@ -43,7 +48,7 @@ class _ProcmapsFakeAdb:
 
 def test_procmaps_prints_maps_for_given_pid(monkeypatch):
     fake = _ProcmapsFakeAdb(maps=b"7f0000-7f1000 r-xp 0 00:00 0 /lib/libc.so\n")
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(app, ["procmaps", "-p", "1234"])
     assert result.exit_code == 0
     assert "libc.so" in result.output
@@ -52,7 +57,7 @@ def test_procmaps_prints_maps_for_given_pid(monkeypatch):
 def test_procmaps_resolves_pid_by_name(monkeypatch):
     """`-P name` must resolve to the sole matching pid before reading its maps."""
     fake = _ProcmapsFakeAdb(pidof_output="1234\n", maps=b"deadbeef\n")
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(app, ["procmaps", "-P", "com.example.app"])
     assert result.exit_code == 0
     assert "deadbeef" in result.output
@@ -68,14 +73,14 @@ def test_procmaps_rejects_both_p_and_capital_p():
 def test_procmaps_errors_when_name_matches_multiple_processes(monkeypatch):
     """Wiring guard: ProcMaps.AmbiguousProcessError must map to CLI exit 1, not propagate."""
     fake = _ProcmapsFakeAdb(pidof_output="1234 5678\n")
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(app, ["procmaps", "-P", "com.example.app"])
     assert result.exit_code == 1
 
 
 def test_procmaps_errors_when_pid_has_no_proc_entry(monkeypatch):
     fake = _ProcmapsFakeAdb(maps_ok=False)
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(app, ["procmaps", "-p", "9999"])
     assert result.exit_code == 1
 
@@ -85,7 +90,7 @@ def test_procmaps_with_no_flags_launches_fzf_and_reads_the_picked_pid(monkeypatc
         maps=b"deadbeef\n",
         ps_output="USER  PID  PPID S NAME\nu0_a1 1234 567  S com.example.app\n",
     )
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(procmaps, "stdout_is_tty", lambda: True)
     monkeypatch.setattr(fzf.shutil, "which", lambda name: "/usr/bin/fzf")
     monkeypatch.setattr(
@@ -100,7 +105,7 @@ def test_procmaps_with_no_flags_launches_fzf_and_reads_the_picked_pid(monkeypatc
 
 def test_procmaps_with_no_flags_exits_when_fzf_is_missing(monkeypatch):
     fake = _ProcmapsFakeAdb()
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(procmaps, "stdout_is_tty", lambda: True)
     monkeypatch.setattr(fzf.shutil, "which", lambda name: None)
     result = CliRunner().invoke(app, ["procmaps"])
@@ -113,7 +118,7 @@ def test_procmaps_with_no_flags_refuses_to_fuzzy_pick_when_stdout_is_not_a_tty(
 ):
     """Piped/redirected stdout must never trigger fzf; -p/-P are the only way in."""
     fake = _ProcmapsFakeAdb()
-    monkeypatch.setattr(procmaps, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(procmaps, "stdout_is_tty", lambda: False)
     result = CliRunner().invoke(app, ["procmaps"])
     assert result.exit_code == 2

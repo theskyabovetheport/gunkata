@@ -1,28 +1,38 @@
 """`gunkata shell`: run a one-shot command via su, or attach interactively."""
 
+import shlex
+
 import typer
 
-from gunkata.adb import Adb
 from gunkata.cli.app import app
 from gunkata.cli.completion import complete_remote_path
+from gunkata.cli.passthrough import PASSTHROUGH
+from gunkata.cli.tty import stdin_is_tty, stdout_is_tty
 from gunkata.device import Device
 
-_PASSTHROUGH = {"allow_extra_args": True, "ignore_unknown_options": True}
 
-
-@app.command(context_settings=_PASSTHROUGH)
+@app.command(context_settings=PASSTHROUGH)
 def shell(
+    ctx: typer.Context,
     command: list[str] = typer.Argument(None, autocompletion=complete_remote_path),
-    directory: str = typer.Option(None, "-C", help="Start the shell in this directory."),
-    user: str = typer.Option(
-        None, "-U", help="Run as this user, via su (default: root if su is available, else shell)."
-    ),
 ) -> None:
-    """Shell via su. With a command, run it and exit; with none, attach interactively."""
-    device_shell = Device(Adb()).shell(user=user)
-    if command:
-        cd = f"cd '{directory}' && " if directory else ""
-        result = device_shell(f"{cd}{' '.join(command)}")
-        typer.echo(result.output, nl=False)
-        raise typer.Exit(result.rc)
-    device_shell.execvp_sh(directory)
+    """Open a shell on the device, or run one command on it and exit.
+
+    Runs as the default user, via su unless that user is `shell`; pass
+    `gunkata -U <user>` to pick another. With no command, attaches
+    interactively.
+    """
+    # command already arrived as argv tokens -- the invoking shell resolved
+    # any quoting of its own before this process ever saw it. shlex.join
+    # re-quotes each token so a token like a guarded glob survives as the
+    # same literal value once the device's shell parses this string again.
+    Device().shell().execvp_sh(
+        command=shlex.join(command) if command else None,
+        # Set by `gunkata`'s own -C, which must precede this command the way
+        # adb's own -s precedes its subcommand -- see app.py's root callback.
+        directory=ctx.obj,
+        # Both ends, not just stdin as adb's own -t tests: a pty would put a
+        # terminal's line discipline between the device and a redirected
+        # stdout, corrupting `gunkata shell cat <binary> >file`.
+        pty=stdin_is_tty() and stdout_is_tty(),
+    )

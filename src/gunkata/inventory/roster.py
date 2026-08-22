@@ -1,7 +1,7 @@
-"""Builds and renders the table `device list`/`device select` show.
+"""Builds and renders the table `gunkata devices` shows.
 
 Every adb-visible device gets one row: SERIAL, then the locally-known
-identity (NAME, TAGS, STATE), then whatever gunkata.device_config.ListConfig
+identity (NAME, TAGS, STATE), then whatever gunkata.inventory.list_config.ListConfig
 declares. Nothing here is fatal to the whole table -- a device that can't be
 reached renders "-" in its own cells, same as the ledger tool's `_field`/
 `_cell` convention for an absent or unreachable value.
@@ -11,8 +11,9 @@ import re
 import subprocess
 
 from gunkata.adb import AdbDeviceEntry, AdbFactory
-from gunkata.device_config import Getter, ListConfig
-from gunkata.device_info import DeviceInfo, DeviceInfoStore
+
+from .info import DeviceInfo, DeviceInfoStore
+from .list_config import Getter, ListConfig
 
 _CELL_WIDTH = 40
 _ADB_TIMEOUT = 10.0
@@ -50,7 +51,7 @@ class DeviceRoster:
         """Render header and rows as an aligned table.
 
         Args:
-            numbered: Prepend a 1-based "#" column, for `device select`.
+            numbered: Prepend a 1-based "#" column, for `gunkata devices --select`.
 
         Returns:
             The table as one string, one line per row including the header;
@@ -111,7 +112,7 @@ class DeviceRoster:
             exit or an OSError), which must render as "-" in that device's
             cells rather than aborting the whole table. stdin is detached so
             the child adb process can never consume or close the terminal's
-            stdin out from under `device select`'s own prompt.
+            stdin out from under `gunkata devices --select`'s own prompt.
         """
         try:
             return self._adb_factory(serial)(

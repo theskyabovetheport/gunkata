@@ -1,28 +1,33 @@
+import importlib
 import subprocess
 
 import pytest
 
+from gunkata.adb import Adb
 from gunkata.cli import completion
+from gunkata.common.paths import Paths
+from gunkata.device import DeviceSettingsStore
+
+# The `gunkata.device` attribute is the package's device() factory function,
+# which shadows the submodule of the same name, so it has to be imported by name.
+device_mod = importlib.import_module("gunkata.device")
 
 
 class _FakeAdb:
-    """Stands in for Adb: answers `command -v su` and `ls -1p` canned, counts real device calls.
+    """Stands in for Adb: answers `ls -1p` canned, counts real device calls.
 
-    Returns bytes for stdout/stderr, matching real Adb (no text=True).
+    Returns bytes for stdout/stderr, matching real Adb (no text=True). Su's
+    enabled flag is read from the environment, not probed on-device, so
+    there is no `command -v su` branch here to fake.
     """
 
     def __init__(self, ls_output: str, ls_ok: bool = True):
         self.serial = "fake-serial"
         self._ls_output = ls_output
         self._ls_ok = ls_ok
-        self.su_check_calls = 0
         self.ls_calls = 0
 
     def __call__(self, args, **kwargs) -> subprocess.CompletedProcess:
-        command = args[-1] if args and args[0] == "shell" else ""
-        if "command -v" in command:
-            self.su_check_calls += 1
-            return subprocess.CompletedProcess(args, 0, b"/system/bin/su\n", b"")
         self.ls_calls += 1
         returncode = 0 if self._ls_ok else 1
         return subprocess.CompletedProcess(
@@ -36,52 +41,53 @@ class _BrokenAdb:
 
 
 def test_completes_nested_path(monkeypatch):
-    """A directory candidate is typed "dir" -- not bare "plain" -- so the shell
-    skips the trailing space and lets the user tab further into it."""
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("tmp/\nfoo.txt\n"))
+    """A directory candidate is paired with the help text "dir", a file with
+    "file" -- so a shell that renders completion help can tell them apart."""
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _FakeAdb("tmp/\nfoo.txt\n"))
     results = completion.complete_remote_path(None, [], "/data/local/")
-    assert [(r.value, r.type) for r in results] == [
+    assert results == [
         ("/data/local/tmp/", "dir"),
         ("/data/local/foo.txt", "file"),
     ]
 
 
 def test_completes_root_path(monkeypatch):
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("data/\nsdcard/\n"))
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _FakeAdb("data/\nsdcard/\n"))
     results = completion.complete_remote_path(None, [], "/")
-    assert [r.value for r in results] == ["/data/", "/sdcard/"]
+    assert [value for value, _ in results] == ["/data/", "/sdcard/"]
 
 
 def test_completes_relative_path(monkeypatch):
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("a.txt\nb.txt\n"))
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _FakeAdb("a.txt\nb.txt\n"))
     results = completion.complete_remote_path(None, [], "")
-    assert [r.value for r in results] == ["a.txt", "b.txt"]
+    assert [value for value, _ in results] == ["a.txt", "b.txt"]
 
 
 def test_returns_empty_on_ls_failure(monkeypatch):
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: _FakeAdb("", ls_ok=False))
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _FakeAdb("", ls_ok=False))
     assert completion.complete_remote_path(None, [], "/no/such/dir") == []
 
 
 def test_swallows_no_device_error(monkeypatch):
     """No device attached must never raise into the shell's completion prompt."""
-    monkeypatch.setattr(completion, "Adb", _BrokenAdb)
+    monkeypatch.setattr(device_mod, "Adb", _BrokenAdb)
     assert completion.complete_remote_path(None, [], "/data") == []
 
 
 def test_second_call_for_same_dir_hits_cache_not_the_device(monkeypatch):
-    """Retyping within the same directory must not re-run `command -v su` or `ls`."""
+    """Retyping within the same directory must not re-run `ls`."""
     fake = _FakeAdb("tmp/\n")
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     first = completion.complete_remote_path(None, [], "/data/local/t")
     second = completion.complete_remote_path(None, [], "/data/local/tm")
-    assert [r.value for r in first] == [r.value for r in second] == ["/data/local/tmp/"]
-    assert fake.su_check_calls == 1
+    first_values = [value for value, _ in first]
+    second_values = [value for value, _ in second]
+    assert first_values == second_values == ["/data/local/tmp/"]
     assert fake.ls_calls == 1
 
 
 class _PsFakeAdb:
-    """Answers `command -v su` and `ps -A` canned; counts real `ps -A` calls."""
+    """Answers `ps -A` canned; counts real `ps -A` calls."""
 
     def __init__(self, ps_output: str):
         self.serial = "fake-serial"
@@ -89,9 +95,6 @@ class _PsFakeAdb:
         self.ps_calls = 0
 
     def __call__(self, args, **kwargs) -> subprocess.CompletedProcess:
-        command = args[-1] if args and args[0] == "shell" else ""
-        if "command -v" in command:
-            return subprocess.CompletedProcess(args, 0, b"/system/bin/su\n", b"")
         self.ps_calls += 1
         return subprocess.CompletedProcess(args, 0, self._ps_output.encode(), b"")
 
@@ -104,7 +107,7 @@ _PS_OUTPUT = (
 
 
 def test_completes_process_name(monkeypatch):
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: _PsFakeAdb(_PS_OUTPUT))
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _PsFakeAdb(_PS_OUTPUT))
     assert completion.complete_process_name(None, [], "com.example.a") == [
         "com.example.app"
     ]
@@ -113,7 +116,7 @@ def test_completes_process_name(monkeypatch):
 def test_process_name_completion_hits_cache_not_the_device(monkeypatch):
     """Retyping within the TTL must not re-run `ps -A`, matching the path completer's caching."""
     fake = _PsFakeAdb(_PS_OUTPUT)
-    monkeypatch.setattr(completion, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     first = completion.complete_process_name(None, [], "com.example.a")
     second = completion.complete_process_name(None, [], "com.example.o")
     assert first == ["com.example.app"]
@@ -122,7 +125,22 @@ def test_process_name_completion_hits_cache_not_the_device(monkeypatch):
 
 
 @pytest.mark.emulator
-def test_completes_against_real_device():
-    """/data/local/tmp is a standard Android writable dir; must appear when completing its prefix."""
+def test_completes_against_real_device(tmp_path, monkeypatch):
+    """A completer reaches root through the device's own persisted settings.
+
+    /data/local is mode 0771 root:root, so listing it as "shell" is denied and
+    the completer -- which swallows every failure to keep the shell prompt
+    usable -- returns nothing at all. Completing this prefix therefore only
+    succeeds if the persisted GUNKATA_SHELL_DEFAULT_USER reached Su without being
+    exported into the environment first, which is exactly the path
+    `device env --edit` is supposed to serve.
+    """
+    serial = Adb().serial
+    monkeypatch.setenv("GUNKATA_ROOT", str(tmp_path))
+    DeviceSettingsStore(Paths(root=tmp_path)).set(serial, "GUNKATA_SHELL_DEFAULT_USER", "root")
+    monkeypatch.setattr(
+        completion, "_completion_cache_path", lambda: tmp_path / "completion.json"
+    )
+
     results = completion.complete_remote_path(None, [], "/data/local/tm")
-    assert any(r.value.startswith("/data/local/tmp") for r in results)
+    assert any(value.startswith("/data/local/tmp") for value, _ in results)

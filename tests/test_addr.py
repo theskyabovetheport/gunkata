@@ -1,11 +1,11 @@
 import pytest
 
 from gunkata.addr import AddrLocator
-from gunkata.procmaps_parser import ProcMapsParser
+from gunkata.procmaps import ProcMaps
 
 
 def _locator(maps_text: str) -> AddrLocator:
-    return AddrLocator(ProcMapsParser(maps_text))
+    return AddrLocator(ProcMaps(maps_text.encode()))
 
 
 # Three real-shaped mappings with a gap between the first two and a gap after
@@ -19,7 +19,7 @@ _MAPS = (
 
 
 def test_constructor_rejects_a_line_without_an_address_range():
-    """ProcMapsParser -- not AddrLocator itself -- owns parsing and its ValueError; see procmaps_parser.py."""
+    """ProcMaps -- not AddrLocator -- owns parsing and its ValueError; see procmaps.py."""
     with pytest.raises(ValueError):
         _locator("not a maps line\n")
 

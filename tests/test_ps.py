@@ -1,7 +1,7 @@
 import pytest
 
 from gunkata.ps import ProcessEntry, Ps
-from gunkata.types import ShellError, ShellResult
+from gunkata.shell import ShellError, ShellResult
 
 # A real toybox `ps -A` header and a couple of rows, columns aligned as the
 # device pads them.

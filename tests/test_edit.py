@@ -3,7 +3,7 @@ import subprocess
 import pytest
 
 from gunkata.edit import Edit, EditorNotFoundError
-from gunkata.types import ShellError
+from gunkata.shell import ShellError
 
 
 class _FakeShell:

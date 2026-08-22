@@ -1,13 +1,13 @@
 """Where a set of addresses falls among a /proc/<pid>/maps listing."""
 
-from .procmaps_parser import MemoryMapping, ProcMapsParser
+from .procmaps import MemoryMapping, ProcMaps
 
 
 class AddrLocator:
     """Locates addresses among a /proc/<pid>/maps listing and annotates it.
 
     Args:
-        parser: The listing already parsed into mappings.
+        procmaps: The listing to locate addresses among.
 
     Design:
         Annotations accumulate against mapping *lines*, not addresses -- one
@@ -17,9 +17,9 @@ class AddrLocator:
         against it.
     """
 
-    def __init__(self, parser: ProcMapsParser):
-        self._parser = parser
-        self._mappings = parser.mappings()
+    def __init__(self, procmaps: ProcMaps):
+        self._procmaps = procmaps
+        self._mappings = procmaps.mappings()
         self._notes: dict[int, list[str]] = {}
 
     def locate(self, address: int) -> None:
@@ -29,7 +29,7 @@ class AddrLocator:
             address: The address to locate among this listing's mappings.
 
         Design:
-            A containing mapping is the common case and ProcMapsParser.find
+            A containing mapping is the common case and ProcMaps.find
             answers it directly. Otherwise, mappings are walked in the
             ascending order /proc/<pid>/maps already lists them in: the first
             mapping address doesn't precede is the one right after the gap it
@@ -38,9 +38,9 @@ class AddrLocator:
         """
         if not self._mappings:
             return
-        contained = self._parser.find(address)
+        contained = self._procmaps.find(address)
         if contained is not None:
-            index = self._parser.index_of(contained)
+            index = self._procmaps.index_of(contained)
             self._note(index, self._describe("contained", contained, address))
             return
         for index, mapping in enumerate(self._mappings):

@@ -1,3 +1,4 @@
+import importlib
 import io
 import subprocess
 
@@ -7,6 +8,10 @@ from typer.testing import CliRunner
 
 from gunkata.cli import mem
 from gunkata.cli.app import app
+
+# The `gunkata.device` attribute is the package's device() factory function,
+# which shadows the submodule of the same name, so it has to be imported by name.
+device_mod = importlib.import_module("gunkata.device")
 
 
 def test_parse_mem_address_expr_delegates_to_the_shared_parser():
@@ -61,7 +66,7 @@ _MEM_MAPS = b"7f0000000000-7f0000010000 rw-p 00000000 00:00 0\n"
 
 def test_mem_read_writes_raw_bytes_to_stdout_when_piped(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS, dd_stdout=b"hello")
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app,
         ["mem", "read", "-s", "0x7f0000000000", "-e", "0x7f0000000005"],
@@ -76,10 +81,10 @@ def test_mem_read_hexdumps_when_stdout_is_a_tty(monkeypatch, capsys):
     beforehand (see test_ps.py's tty tests for the same reason); calling mem_read()
     directly sidesteps it."""
     fake = _MemFakeAdb(maps=_MEM_MAPS, dd_stdout=b"hi")
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     monkeypatch.setattr(mem.sys, "stdin", io.StringIO("1234\n"))
     monkeypatch.setattr(mem.sys.stdout, "isatty", lambda: True)
-    mem.mem_read(start="0x7f0000000000", end="0x7f0000000002", pid=None, name=None, user=None)
+    mem.mem_read(start="0x7f0000000000", end="0x7f0000000002", pid=None, name=None)
     out = capsys.readouterr().out
     assert "68 69" in out
     assert "hi" in out
@@ -110,7 +115,7 @@ def test_mem_read_rejects_an_unparseable_address():
 def test_mem_read_with_p_uses_the_given_pid_without_touching_stdin(monkeypatch):
     """-p must skip stdin entirely, not merely take priority over it."""
     fake = _MemFakeAdb(maps=_MEM_MAPS, dd_stdout=b"hello")
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app, ["mem", "read", "-s", "0x7f0000000000", "-e", "0x7f0000000005", "-p", "1234"]
     )
@@ -120,7 +125,7 @@ def test_mem_read_with_p_uses_the_given_pid_without_touching_stdin(monkeypatch):
 
 def test_mem_read_with_capital_p_resolves_the_name_to_a_pid(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS, dd_stdout=b"hello", pidof_output="1234\n")
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app,
         ["mem", "read", "-s", "0x7f0000000000", "-e", "0x7f0000000005", "-P", "com.example.app"],
@@ -141,7 +146,7 @@ def test_mem_read_with_capital_p_errors_when_name_matches_multiple_processes(
     monkeypatch,
 ):
     fake = _MemFakeAdb(maps=_MEM_MAPS, pidof_output="1234 5678\n")
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app,
         ["mem", "read", "-s", "0x1", "-e", "0x2", "-P", "com.example.app"],
@@ -151,7 +156,7 @@ def test_mem_read_with_capital_p_errors_when_name_matches_multiple_processes(
 
 def test_mem_read_with_capital_p_errors_when_name_matches_nothing(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS, pidof_output="")
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app,
         ["mem", "read", "-s", "0x1", "-e", "0x2", "-P", "no.such.app"],
@@ -161,7 +166,7 @@ def test_mem_read_with_capital_p_errors_when_name_matches_nothing(monkeypatch):
 
 def test_mem_read_reports_an_unmapped_range_loudly(monkeypatch):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     result = CliRunner().invoke(
         app, ["mem", "read", "-s", "0x1", "-e", "0x10"], input="1234\n"
     )
@@ -171,7 +176,7 @@ def test_mem_read_reports_an_unmapped_range_loudly(monkeypatch):
 
 def test_mem_write_sends_the_files_bytes(monkeypatch, tmp_path):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     payload = tmp_path / "payload.bin"
     payload.write_bytes(b"payload")
     result = CliRunner().invoke(
@@ -185,7 +190,7 @@ def test_mem_write_sends_the_files_bytes(monkeypatch, tmp_path):
 
 def test_mem_write_with_p_uses_the_given_pid_without_touching_stdin(monkeypatch, tmp_path):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     payload = tmp_path / "payload.bin"
     payload.write_bytes(b"payload")
     result = CliRunner().invoke(
@@ -197,7 +202,7 @@ def test_mem_write_with_p_uses_the_given_pid_without_touching_stdin(monkeypatch,
 
 def test_mem_write_rejects_data_that_would_cross_the_given_end(monkeypatch, tmp_path):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     payload = tmp_path / "payload.bin"
     payload.write_bytes(b"0123456789")
     result = CliRunner().invoke(
@@ -219,7 +224,7 @@ def test_mem_write_rejects_data_that_would_cross_the_given_end(monkeypatch, tmp_
 
 def test_mem_write_reports_an_unmapped_range_loudly(monkeypatch, tmp_path):
     fake = _MemFakeAdb(maps=_MEM_MAPS)
-    monkeypatch.setattr(mem, "Adb", lambda *a, **k: fake)
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: fake)
     payload = tmp_path / "payload.bin"
     payload.write_bytes(b"x")
     result = CliRunner().invoke(

@@ -1,6 +1,11 @@
+import importlib
 import subprocess
 
 from gunkata.cli import ps
+
+# The `gunkata.device` attribute is the package's device() factory function,
+# which shadows the submodule of the same name, so it has to be imported by name.
+device_mod = importlib.import_module("gunkata.device")
 
 
 class _PsFakeAdb:
@@ -26,7 +31,7 @@ _PS_OUTPUT = (
 
 def test_ps_prints_aligned_columns_with_a_header_on_a_tty(monkeypatch, capsys):
     """A terminal reader gets a table; column width follows the widest pid, not a fixed guess."""
-    monkeypatch.setattr(ps, "Adb", lambda *a, **k: _PsFakeAdb(_PS_OUTPUT))
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _PsFakeAdb(_PS_OUTPUT))
     monkeypatch.setattr(ps, "stdout_is_tty", lambda: True)
     ps.ps()
     assert capsys.readouterr().out.splitlines() == [
@@ -38,7 +43,7 @@ def test_ps_prints_aligned_columns_with_a_header_on_a_tty(monkeypatch, capsys):
 
 def test_ps_prints_unaligned_pid_and_name_when_piped(monkeypatch, capsys):
     """A pipeline gets one space between pid and name -- no header, no column padding."""
-    monkeypatch.setattr(ps, "Adb", lambda *a, **k: _PsFakeAdb(_PS_OUTPUT))
+    monkeypatch.setattr(device_mod, "Adb", lambda *a, **k: _PsFakeAdb(_PS_OUTPUT))
     monkeypatch.setattr(ps, "stdout_is_tty", lambda: False)
     ps.ps()
     assert capsys.readouterr().out.splitlines() == [

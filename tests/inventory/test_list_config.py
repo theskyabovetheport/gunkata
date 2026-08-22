@@ -1,6 +1,6 @@
 import pytest
 
-from gunkata.device_config import (
+from gunkata.inventory.list_config import (
     DEFAULT_LIST_CONFIG_YAML,
     Column,
     Getter,
