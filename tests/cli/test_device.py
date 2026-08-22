@@ -1,10 +1,11 @@
 import subprocess
+from typing import ClassVar
 
 import pytest
 from typer.testing import CliRunner
 
 from gunkata.adb import AdbDeviceEntry
-from gunkata.cli import device  # noqa: F401 -- imported for its command-registration side effect
+from gunkata.cli import device
 from gunkata.cli.app import app
 from gunkata.common.paths import Paths
 from gunkata.device import DeviceSettingsStore
@@ -14,8 +15,8 @@ class _FakeAdb:
     """Same shape as the fake in tests/inventory/test_roster.py: a class-level
     device list plus per-serial shell responses."""
 
-    _entries: list[AdbDeviceEntry] = []
-    _shell_responses: dict[tuple[str, str], subprocess.CompletedProcess] = {}
+    _entries: ClassVar[list[AdbDeviceEntry]] = []
+    _shell_responses: ClassVar[dict[tuple[str, str], subprocess.CompletedProcess]] = {}
 
     def __init__(self, serial: str | None = None):
         """None mirrors real Adb's auto-detect: the fixture's sole entry."""

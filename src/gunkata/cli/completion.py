@@ -25,23 +25,30 @@ def _completion_cache_path() -> Path:
 
 
 def _completion_cache_get(key: str) -> str | None:
+    # Resilience boundary: the cache is a pure optimization, so a missing
+    # file, corrupt JSON, or a stale schema must read as a cache miss, never
+    # crash the completer. Not logged: this runs inside a live shell's
+    # tab-completion, where stray stderr output corrupts what the user sees.
     try:
         cache = json.loads(_completion_cache_path().read_text())
         entry = cache[key]
         if time.time() - entry["ts"] < _COMPLETION_CACHE_TTL:
             return entry["value"]
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
     return None
 
 
 def _completion_cache_set(key: str, value: str) -> None:
+    # Resilience boundary, same reasoning as _completion_cache_get: a write
+    # failure (permissions, disk full, a racing writer) must not surface --
+    # losing the cache costs a slower completion, not a broken one.
     try:
         path = _completion_cache_path()
         cache = json.loads(path.read_text()) if path.exists() else {}
         cache[key] = {"value": value, "ts": time.time()}
         path.write_text(json.dumps(cache))
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
 
 
@@ -106,7 +113,10 @@ def complete_remote_path(ctx, args, incomplete: str) -> list[tuple[str, str]]:
             for name in output.splitlines()
             if name
         ]
-    except Exception:
+    # Resilience boundary: no device, a broken shell, or a stale cache entry
+    # must offer no completions, never crash the user's shell. Not logged --
+    # see _completion_cache_get.
+    except Exception:  # noqa: BLE001
         return []
 
 
@@ -119,7 +129,8 @@ def complete_process_name(ctx, args, incomplete: str) -> list[str]:
             _completion_cache_set("ps:names", names_cache)
 
         return [name for name in names_cache.splitlines() if name.startswith(incomplete)]
-    except Exception:
+    # Resilience boundary, same reasoning as complete_remote_path above.
+    except Exception:  # noqa: BLE001
         return []
 
 
@@ -135,9 +146,9 @@ def complete_process_name(ctx, args, incomplete: str) -> list[str]:
 # its private shell-script generation to do so. Remove it, and the patch
 # call at the bottom, once typer reads .help (or .type) itself.
 
-from typer._click.shell_completion import add_completion_class
-from typer._completion_classes import BashComplete, ZshComplete
-import typer._completion_classes as _typer_completion_classes
+import typer._completion_classes as _typer_completion_classes  # noqa: E402
+from typer._click.shell_completion import add_completion_class  # noqa: E402
+from typer._completion_classes import BashComplete, ZshComplete  # noqa: E402
 
 _NOSPACE_BASH_SOURCE_TEMPLATE = """\
 %(complete_func)s() {

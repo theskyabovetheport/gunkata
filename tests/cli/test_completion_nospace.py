@@ -11,10 +11,10 @@ import subprocess
 from collections import namedtuple
 
 import pytest
-
-from gunkata.cli import completion
 from typer._click.shell_completion import get_completion_class
 from typer._completion_classes import completion_init
+
+from gunkata.cli import completion
 
 # A minimal stand-in for typer's CompletionItem: format_completion and
 # _zsh_compadd_script only ever read .value/.help.

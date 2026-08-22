@@ -53,5 +53,5 @@ def procmaps(
         )
     except (NoSuchProcessError, AmbiguousProcessError) as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     sys.stdout.buffer.write(maps.raw)

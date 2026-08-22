@@ -5,7 +5,7 @@ import tarfile
 
 from typer.testing import CliRunner
 
-from gunkata.cli import pull as pull_cli
+from gunkata.cli import pull  # noqa: F401 -- imported for its command registration
 from gunkata.cli.app import app
 
 # The `gunkata.device` attribute is the package's device() factory function,

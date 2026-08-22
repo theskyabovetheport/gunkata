@@ -143,9 +143,17 @@ surfaces as a loud, ordinary command failure.
 Managed with [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync            # create .venv, install gunkata + deps
+uv sync            # create .venv, install gunkata + deps + dev tools
 uv run gunkata     # run the CLI
 uv run gunkata version
+```
+
+`scripts/check.sh` runs every gate this repo has -- lint (`ruff`), a docs
+build (`mkdocs build --strict`, serving `README.md` itself as `docs/index.md`,
+a symlink), then the test suite:
+
+```bash
+scripts/check.sh
 ```
 
 Tests marked `emulator` need a live adb-attached device. `scripts/run_emulator.sh`

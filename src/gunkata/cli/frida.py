@@ -52,7 +52,7 @@ def frida_start(
         pids = _frida_server(port=port, version=version).start()
     except _START_FAILURES as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     typer.echo(f"running (pid {' '.join(str(p) for p in pids)})")
 
 
@@ -63,7 +63,7 @@ def frida_stop() -> None:
         killed = _frida_server().stop()
     except FridaServerError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     if killed:
         typer.echo(f"stopped (pid {' '.join(str(p) for p in killed)})")
     else:
@@ -80,7 +80,7 @@ def frida_status() -> None:
         pids = _frida_server().running_pids()
     except FridaServerError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     if not pids:
         typer.echo("stopped")
         raise typer.Exit(1)

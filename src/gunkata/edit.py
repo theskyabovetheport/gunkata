@@ -3,7 +3,8 @@
 import logging
 from pathlib import PurePosixPath
 
-from gunkata.localedit import EditorNotFoundError, launch, resolve_editor
+# EditorNotFoundError re-exported for callers; see Raises: below.
+from gunkata.localedit import EditorNotFoundError, launch, resolve_editor  # noqa: F401
 
 from .shell import Shell
 

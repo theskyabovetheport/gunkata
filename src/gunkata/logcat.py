@@ -29,7 +29,7 @@ class Level(IntEnum):
 
     V = 2
     D = 3
-    I = 4
+    I = 4  # noqa: E741 -- the letter threadtime prints, not a loop variable
     W = 5
     E = 6
     F = 7

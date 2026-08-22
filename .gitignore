@@ -20,6 +20,9 @@ venv/
 .mypy_cache/
 .cache/
 
+# mkdocs build output (docs/index.md, the source, is tracked)
+site/
+
 # Env / secrets
 .env
 

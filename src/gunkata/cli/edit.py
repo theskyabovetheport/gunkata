@@ -20,5 +20,5 @@ def edit(
         changed = Edit(Device().shell(), editor=editor).run(dpath)
     except EditorNotFoundError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     typer.echo(f"{dpath}: {'updated' if changed else 'unchanged'}")

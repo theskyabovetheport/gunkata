@@ -91,7 +91,7 @@ class Adb:
         if not serials:
             raise AdbError("no adb device connected")
         if len(serials) > 1:
-            raise AdbError(f"multiple adb devices connected; pass a serial explicitly")
+            raise AdbError("multiple adb devices connected; pass a serial explicitly")
         return serials[0]
 
 

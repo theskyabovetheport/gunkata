@@ -25,13 +25,13 @@ def pull(
         result = Device().shell().pull(dpath, lpath)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(2) from None
     except FileNotFoundError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     except ShellError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     if result.skipped:
         typer.echo(f"skipped {len(result.skipped)}: {', '.join(result.skipped)}", err=True)
     for path in result.paths:

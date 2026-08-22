@@ -148,9 +148,11 @@ def test_keeps_what_landed_when_the_stream_breaks_mid_member(tmp_path):
     # Cuts off partway through b.txt's data block, after a.txt landed
     # completely and b.txt's header was read in full.
     truncated = raw[: 1536 + 200]
-    archive = tarfile.open(fileobj=io.BytesIO(truncated), mode="r|", errorlevel=1)
     extractor = TarExtractor(str(tmp_path))
-    with pytest.raises(tarfile.TarError):
+    with (
+        tarfile.open(fileobj=io.BytesIO(truncated), mode="r|", errorlevel=1) as archive,
+        pytest.raises(tarfile.TarError),
+    ):
         extractor.extract_all(archive)
     assert extractor.paths == [str(tmp_path / "a.txt")]
     assert (tmp_path / "a.txt").read_bytes() == b"hello"

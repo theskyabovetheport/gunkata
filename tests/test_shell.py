@@ -186,7 +186,8 @@ def test_read_file_returns_raw_bytes():
     assert adb.calls == [
         [
             "shell",
-            "su root sh -c 'if [ -e /data/local/tmp/f ]; then cat /data/local/tmp/f; else exit 90; fi'",
+            "su root sh -c 'if [ -e /data/local/tmp/f ]; then cat /data/local/tmp/f; "
+            "else exit 90; fi'",
         ]
     ]
 
@@ -241,7 +242,8 @@ def test_inherit_owner_recursive_by_default():
     assert adb.calls == [
         [
             "shell",
-            "su root sh -c 'chown -R $(stat -c %u:%g $(dirname /data/local/tmp/d)) /data/local/tmp/d'",
+            "su root sh -c 'chown -R $(stat -c %u:%g $(dirname /data/local/tmp/d)) "
+            "/data/local/tmp/d'",
         ]
     ]
 
@@ -254,7 +256,8 @@ def test_mkdir_creates_and_inherits_owner():
         ["shell", "su root sh -c 'mkdir -p /data/local/tmp/d'"],
         [
             "shell",
-            "su root sh -c 'chown -R $(stat -c %u:%g $(dirname /data/local/tmp/d)) /data/local/tmp/d'",
+            "su root sh -c 'chown -R $(stat -c %u:%g $(dirname /data/local/tmp/d)) "
+            "/data/local/tmp/d'",
         ],
     ]
 
@@ -267,7 +270,8 @@ def test_touch_creates_and_inherits_owner():
         ["shell", "su root sh -c 'touch /data/local/tmp/f'"],
         [
             "shell",
-            "su root sh -c 'chown -R $(stat -c %u:%g $(dirname /data/local/tmp/f)) /data/local/tmp/f'",
+            "su root sh -c 'chown -R $(stat -c %u:%g $(dirname /data/local/tmp/f)) "
+            "/data/local/tmp/f'",
         ],
     ]
 
@@ -441,9 +445,8 @@ def test_pull_file_keeps_a_nonempty_partial_and_warns_on_failure(tmp_path, caplo
         user="root",
         su=Su(),
     )
-    with caplog.at_level("WARNING"):
-        with pytest.raises(ShellError):
-            shell.pull_file("/data/local/tmp/src.bin", str(lpath))
+    with caplog.at_level("WARNING"), pytest.raises(ShellError):
+        shell.pull_file("/data/local/tmp/src.bin", str(lpath))
     tmp_path_on_disk = tmp_path / "dst.bin.gk-part"
     assert not lpath.exists()
     assert tmp_path_on_disk.read_bytes() == b"partial data"
@@ -549,7 +552,9 @@ def test_execvp_sh_attaches_an_interactive_su_shell(monkeypatch):
     calls = []
     monkeypatch.setattr("os.execvp", lambda *args: calls.append(args))
     Shell(_SpyAdb(), user="root", su=Su()).execvp_sh()
-    assert calls == [("adb", ["adb", "-s", "fake-serial", "shell", "-t", "su root sh -c 'exec sh'"])]
+    assert calls == [
+        ("adb", ["adb", "-s", "fake-serial", "shell", "-t", "su root sh -c 'exec sh'"])
+    ]
 
 
 def test_execvp_sh_runs_a_command_instead_of_attaching_when_given_one(monkeypatch):
@@ -945,9 +950,8 @@ def test_pull_tree_rc_1_with_a_complete_archive_keeps_what_landed(tmp_path, capl
     ldir = tmp_path / "out"
     ldir.mkdir()
     adb = _TarStreamAdb(f"cat {archive}; exit 1")
-    with caplog.at_level("WARNING"):
-        with pytest.raises(ShellError) as raised:
-            Shell(adb, user="shell", su=Su()).pull_tree("/system/etc/sec", str(ldir))
+    with caplog.at_level("WARNING"), pytest.raises(ShellError) as raised:
+        Shell(adb, user="shell", su=Su()).pull_tree("/system/etc/sec", str(ldir))
     assert raised.value.rc == 1
     assert (ldir / "sec" / "a.txt").read_bytes() == b"hello"
     assert str(ldir / "sec") in caplog.text
@@ -1225,7 +1229,7 @@ def test_pull_wildcard_lands_only_its_matches_flat_against_real_device(device, t
         shell.write_file(f"{remote_root}/skip.txt", b"nope")
         ldir = tmp_path / "out"
         ldir.mkdir()
-        result = shell.pull(f"{remote_root}/keep_*.db", str(ldir))
+        shell.pull(f"{remote_root}/keep_*.db", str(ldir))
         assert sorted(os.listdir(ldir)) == ["keep_a.db", "keep_b.db"]
         assert (ldir / "keep_a.db").read_bytes() == b"a"
         assert (ldir / "keep_b.db").read_bytes() == b"b"

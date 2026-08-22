@@ -24,7 +24,7 @@ def _stream(script: str) -> Stream:
     The pipe keywords mirror Shell.stream exactly. If they drift, these tests
     stop covering the configuration that actually runs against a device.
     """
-    stderr_file = tempfile.TemporaryFile(mode="w+b")
+    stderr_file = tempfile.TemporaryFile(mode="w+b")  # noqa: SIM115 -- outlives this scope
     process = subprocess.Popen(
         ["sh", "-c", script],
         stdout=subprocess.PIPE,
@@ -92,14 +92,13 @@ def test_a_with_block_that_never_reads_a_line_still_reports_a_failure():
         if stream._process.poll() is not None:
             break
         time.sleep(0.02)
-    with pytest.raises(ShellError) as raised:
-        with stream:
-            pass
+    with pytest.raises(ShellError) as raised, stream:
+        pass
     assert raised.value.rc == 5
 
 
 def test_a_with_block_that_never_reads_a_line_does_not_raise_on_success():
-    with _stream("true") as stream:
+    with _stream("true"):
         pass
 
 
@@ -201,9 +200,8 @@ def test_a_racing_close_neither_swallows_a_failure_nor_invents_one(monkeypatch):
     assert reaping.wait(5), "the closing thread never entered _reap"
     threading.Timer(0.3, finish.set).start()
 
-    with pytest.raises(ShellError) as raised:
-        with stream:
-            pass
+    with pytest.raises(ShellError) as raised, stream:
+        pass
     assert raised.value.rc == 3
     assert "went wrong" in raised.value.stderr
     closer.join(5)

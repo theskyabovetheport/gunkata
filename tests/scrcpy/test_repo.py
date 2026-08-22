@@ -1,6 +1,5 @@
 import hashlib
 import tarfile
-import urllib.error
 from pathlib import Path
 
 import pytest

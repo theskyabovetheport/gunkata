@@ -8,7 +8,7 @@ for that same serial directory's `settings` file.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from gunkata.common.paths import Paths
 
@@ -73,7 +73,7 @@ class DeviceInfoStore:
         """
         path = self._paths.device_note_path(serial)
         path.parent.mkdir(parents=True, exist_ok=True)
-        stamp = (when or datetime.now(timezone.utc)).isoformat(timespec="seconds")
+        stamp = (when or datetime.now(UTC)).isoformat(timespec="seconds")
         with path.open("a") as f:
             f.write(_NOTE_ENTRY.format(stamp=stamp, message=message.strip()))
 

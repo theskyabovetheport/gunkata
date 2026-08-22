@@ -499,7 +499,7 @@ class Shell:
             never starts: ownership only transfers once spawning succeeds, so
             a failed spawn must not leak the fd.
         """
-        stderr_file = tempfile.TemporaryFile(mode="w+b")
+        stderr_file = tempfile.TemporaryFile(mode="w+b")  # noqa: SIM115 -- outlives this scope
         try:
             process = self._adb.popen(
                 ["shell", self._su(command)],

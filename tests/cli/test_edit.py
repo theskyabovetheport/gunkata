@@ -4,7 +4,7 @@ import subprocess
 from typer.testing import CliRunner
 
 from gunkata import localedit
-from gunkata.cli import edit as edit_cli
+from gunkata.cli import edit  # noqa: F401 -- imported for its command registration
 from gunkata.cli.app import app
 
 # The `gunkata.device` attribute is the package's device() factory function,

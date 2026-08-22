@@ -76,9 +76,11 @@ def test_extract_refuses_missing_asset_naming_file_and_repo(tmp_path, monkeypatc
     message naming the file, the repo, and the env var that would fetch it."""
     monkeypatch.setattr(importlib.metadata, "version", lambda name: "17.17.0")
     settings = FridaSettings(autodownload_server_binary=False)
-    with pytest.raises(ServerAssetError) as exc:
-        with ServerRepo(tmp_path, settings=settings).extracted(_FakeShell("x86_64")):
-            pass
+    with (
+        pytest.raises(ServerAssetError) as exc,
+        ServerRepo(tmp_path, settings=settings).extracted(_FakeShell("x86_64")),
+    ):
+        pass
     message = str(exc.value)
     assert "frida-server-17.17.0-android-x86_64.xz" in message
     assert str(tmp_path) in message
@@ -124,9 +126,8 @@ def test_extract_propagates_a_download_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(importlib.metadata, "version", lambda name: "17.17.0")
     settings = FridaSettings(autodownload_server_binary=True)
     repo = ServerRepo(tmp_path, settings=settings, downloader=_FailingDownloader())
-    with pytest.raises(BinaryDownloadError):
-        with repo.extracted(_FakeShell("x86_64")):
-            pass
+    with pytest.raises(BinaryDownloadError), repo.extracted(_FakeShell("x86_64")):
+        pass
 
 
 def test_version_defaults_to_the_installed_frida(tmp_path, monkeypatch):
@@ -141,9 +142,11 @@ def test_version_refused_when_frida_absent_and_unset(tmp_path, monkeypatch):
         raise importlib.metadata.PackageNotFoundError(name)
 
     monkeypatch.setattr(importlib.metadata, "version", _absent)
-    with pytest.raises(VersionUnresolvedError):
-        with ServerRepo(tmp_path).extracted(_FakeShell("x86_64")):
-            pass
+    with (
+        pytest.raises(VersionUnresolvedError),
+        ServerRepo(tmp_path).extracted(_FakeShell("x86_64")),
+    ):
+        pass
 
 
 def test_server_repo_reads_the_dist_directory_under_gunkata_root(tmp_path, monkeypatch):
@@ -161,6 +164,8 @@ def test_server_repo_reads_the_dist_directory_under_gunkata_root(tmp_path, monke
 def test_version_rejects_non_release_token(tmp_path, bad):
     """A version string that is not a strict X.Y.Z is refused before it can build
     a filename or reach a device command."""
-    with pytest.raises(ValueError):
-        with ServerRepo(tmp_path).extracted(_FakeShell("x86_64"), version=bad):
-            pass
+    with (
+        pytest.raises(ValueError),
+        ServerRepo(tmp_path).extracted(_FakeShell("x86_64"), version=bad),
+    ):
+        pass

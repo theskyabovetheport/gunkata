@@ -8,10 +8,10 @@ about, whether or not it is the one currently bound.
 
 from .info import DeviceInfo, DeviceInfoStore
 from .list_config import (
-    Column,
     DEFAULT_LIST_CONFIG_YAML,
-    Getter,
     KINDS,
+    Column,
+    Getter,
     ListConfig,
     ListConfigError,
 )

@@ -198,9 +198,8 @@ def test_follow_for_stops_a_stream_blocked_waiting_for_a_line_that_never_comes()
 
 
 def test_follow_for_refuses_a_non_positive_timeout():
-    with pytest.raises(ValueError):
-        with Logcat(_FakeShell()).follow_for(0):
-            pass
+    with pytest.raises(ValueError), Logcat(_FakeShell()).follow_for(0):
+        pass
 
 
 @pytest.mark.emulator

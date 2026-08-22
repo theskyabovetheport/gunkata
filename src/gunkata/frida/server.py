@@ -243,7 +243,7 @@ class FridaServer:
 
     def get_device(
         self, timeout: float | None = None, poll: float | None = None
-    ) -> "frida.core.Device":
+    ) -> "frida.core.Device":  # noqa: F821 -- optional dep, reached only via import_frida()
         """Get the connected frida device for this server's serial, once it answers.
 
         Args:

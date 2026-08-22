@@ -47,7 +47,7 @@ def _read_stdin_pid() -> int:
         return int(tokens[0])
     except ValueError:
         typer.echo(f"not a valid pid: {tokens[0]!r}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 def _parse_mem_address_expr(expr: str) -> int:
@@ -60,7 +60,7 @@ def _parse_mem_address_expr(expr: str) -> int:
         return parse_hex_address_expr(expr)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(2) from None
 
 
 def _hexdump(data: bytes, base: int) -> str:
@@ -94,7 +94,7 @@ def _resolve_mem_pid(device: Device, pid: int | None, name: str | None) -> int:
                 raise AmbiguousProcessError(name, pids)
         except (NoSuchProcessError, AmbiguousProcessError) as exc:
             typer.echo(str(exc), err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(1) from None
         return pids[0]
     if pid is not None:
         return pid
@@ -124,7 +124,7 @@ def mem_read(
         data = Memory(device.shell(), target_pid).read(start_addr, end_addr)
     except (ValueError, UnmappedRangeError) as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     if sys.stdout.isatty():
         typer.echo(_hexdump(data, start_addr))
     else:
@@ -158,4 +158,4 @@ def mem_write(
         Memory(device.shell(), target_pid).write(start_addr, data, end_addr)
     except (ValueError, UnmappedRangeError) as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None

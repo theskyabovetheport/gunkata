@@ -172,7 +172,7 @@ def frame_connection(monkeypatch):
 
 def _frame_connection(made):
     """The connection to the frame itself, not the host queried before it."""
-    return [c for c in made if c.name == ":7"][0]
+    return next(c for c in made if c.name == ":7")
 
 
 class _FakeXephyrProcess:
@@ -298,9 +298,8 @@ def test_a_session_without_a_display_is_refused(monkeypatch):
     launched, rather than surfacing as Xephyr's own opaque stderr."""
     monkeypatch.delenv("DISPLAY", raising=False)
     frame = Xephyr(title="gunkata:emulator-5554", placeholder="waiting for emulator-5554")
-    with pytest.raises(NoDisplayError):
-        with frame.running():
-            pass
+    with pytest.raises(NoDisplayError), frame.running():
+        pass
 
 
 def test_a_missing_xephyr_binary_names_the_package(monkeypatch):
@@ -311,9 +310,8 @@ def test_a_missing_xephyr_binary_names_the_package(monkeypatch):
 
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _popen)
     frame = Xephyr(title="gunkata:emulator-5554", placeholder="waiting for emulator-5554")
-    with pytest.raises(XephyrUnavailableError) as exc:
-        with frame.running():
-            pass
+    with pytest.raises(XephyrUnavailableError) as exc, frame.running():
+        pass
     assert "xserver-xephyr" in str(exc.value)
 
 
@@ -333,9 +331,8 @@ def test_a_missing_matchbox_binary_names_the_package_and_stops_the_frame(monkeyp
 
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _popen)
     frame = Xephyr(title="gunkata:emulator-5554", placeholder="waiting for emulator-5554")
-    with pytest.raises(MatchboxUnavailableError) as exc:
-        with frame.running():
-            pass
+    with pytest.raises(MatchboxUnavailableError) as exc, frame.running():
+        pass
     assert "matchbox-window-manager" in str(exc.value)
     assert xephyr_process["process"].poll() is not None, "the orphaned Xephyr must be reaped"
 
@@ -371,7 +368,7 @@ def test_poll_before_start_raises(monkeypatch):
 def test_display_before_start_raises(monkeypatch):
     frame = Xephyr(title="gunkata:emulator-5554", placeholder="waiting for emulator-5554")
     with pytest.raises(RuntimeError):
-        frame.display
+        _ = frame.display
 
 
 def test_no_window_manager_is_ever_consulted(monkeypatch):
@@ -439,11 +436,10 @@ def test_a_missing_placeholder_binary_is_logged_and_skipped(caplog, monkeypatch)
         return real_popen(argv, pass_fds=pass_fds, env=env)
 
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _popen)
-    with caplog.at_level("INFO", logger="gunkata.scrcpy.xephyr"):
-        with Xephyr(
-            title="gunkata:emulator-5554", placeholder="waiting for emulator-5554"
-        ).running() as frame:
-            assert frame.display == ":7"
+    with caplog.at_level("INFO", logger="gunkata.scrcpy.xephyr"), Xephyr(
+        title="gunkata:emulator-5554", placeholder="waiting for emulator-5554"
+    ).running() as frame:
+        assert frame.display == ":7"
     assert "xmessage" in caplog.text
 
 
@@ -484,9 +480,11 @@ def test_a_frame_display_that_refuses_a_connection_is_named(monkeypatch):
             raise OSError("connection refused")
 
     monkeypatch.setattr(xephyr_mod, "xlib_display", _RefusingFrameModule)
-    with pytest.raises(FrameDisplayError) as exc:
-        with Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running():
-            pass
+    with (
+        pytest.raises(FrameDisplayError) as exc,
+        Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running(),
+    ):
+        pass
     assert ":7" in str(exc.value)
 
 
@@ -523,9 +521,11 @@ def test_no_host_display_is_refused_before_anything_starts(monkeypatch):
         "Popen",
         lambda *a, **k: pytest.fail("nothing may be started without a host display"),
     )
-    with pytest.raises(NoDisplayError):
-        with Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running():
-            pass
+    with (
+        pytest.raises(NoDisplayError),
+        Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running(),
+    ):
+        pass
 
 
 def test_a_pointer_bounded_short_of_the_screen_warns_loudly(caplog, monkeypatch, frame_connection):
@@ -548,7 +548,9 @@ def test_a_pointer_bounded_short_of_the_screen_warns_loudly(caplog, monkeypatch,
     assert "Restart this gunkata scrcpy session" in caplog.text
 
 
-def test_a_pointer_that_reaches_the_screen_warns_about_nothing(caplog, monkeypatch, frame_connection):
+def test_a_pointer_that_reaches_the_screen_warns_about_nothing(
+    caplog, monkeypatch, frame_connection
+):
     monkeypatch.setenv("DISPLAY", ":0")
     captured = {}
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _fake_popen_recording(captured))
@@ -582,9 +584,11 @@ def test_an_old_host_x_server_warns_loudly(caplog, monkeypatch, frame_connection
     captured = {}
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _fake_popen_recording(captured))
     frame_connection.host["release"] = _OLD_RELEASE
-    with caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"):
-        with Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running():
-            pass
+    with (
+        caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"),
+        Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running(),
+    ):
+        pass
     assert "21.1.12" in caplog.text
     assert "21.1.22" in caplog.text
 
@@ -594,14 +598,18 @@ def test_an_old_i3_warns_loudly(caplog, monkeypatch, frame_connection):
     captured = {}
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _fake_popen_recording(captured))
     frame_connection.host["i3"] = "i3 version 4.23 (2023-10-29)"
-    with caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"):
-        with Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running():
-            pass
+    with (
+        caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"),
+        Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running(),
+    ):
+        pass
     assert "i3 4.23" in caplog.text
     assert "4.25.1" in caplog.text
 
 
-def test_an_i3_that_is_not_the_running_wm_is_not_warned_about(caplog, monkeypatch, frame_connection):
+def test_an_i3_that_is_not_the_running_wm_is_not_warned_about(
+    caplog, monkeypatch, frame_connection
+):
     """An i3 installed beside another window manager says nothing about this
     session, so the version it reports must not be warned about -- which is why
     the WM is identified from _NET_SUPPORTING_WM_CHECK, not from PATH."""
@@ -610,9 +618,11 @@ def test_an_i3_that_is_not_the_running_wm_is_not_warned_about(caplog, monkeypatc
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _fake_popen_recording(captured))
     frame_connection.host["wm_name"] = b"Mutter"
     frame_connection.host["i3"] = "i3 version 4.23 (2023-10-29)"
-    with caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"):
-        with Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running():
-            pass
+    with (
+        caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"),
+        Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running(),
+    ):
+        pass
     assert caplog.text == ""
 
 
@@ -620,7 +630,9 @@ def test_a_tested_host_warns_about_nothing(caplog, monkeypatch, frame_connection
     monkeypatch.setenv("DISPLAY", ":0")
     captured = {}
     monkeypatch.setattr(xephyr_mod.subprocess, "Popen", _fake_popen_recording(captured))
-    with caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"):
-        with Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running():
-            pass
+    with (
+        caplog.at_level("WARNING", logger="gunkata.scrcpy.xephyr"),
+        Xephyr(title="gunkata:emulator-5554", placeholder="waiting").running(),
+    ):
+        pass
     assert caplog.text == ""

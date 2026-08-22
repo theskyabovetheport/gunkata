@@ -42,12 +42,12 @@ def addr(
         target = parse_hex_address_expr(address)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(2) from None
     try:
         procmaps = ProcMaps(sys.stdin.buffer.read())
         locator = AddrLocator(procmaps)
     except ValueError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     locator.locate(target)
     typer.echo(locator.annotated(before=before, after=after), nl=False)

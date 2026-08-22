@@ -192,9 +192,8 @@ def test_scoped_run_streams_the_foreground_command_and_reaps(tmp_path):
 def test_scoped_run_refuses_when_a_server_is_already_running(tmp_path):
     shell = _FakeShell(pidof_answers=[[1]], file_exists=True)
     server = _server(shell, tmp_path)
-    with pytest.raises(FridaServerError):
-        with server.running():
-            pass
+    with pytest.raises(FridaServerError), server.running():
+        pass
 
 
 def test_constructor_refuses_an_unsafe_device_path(tmp_path):

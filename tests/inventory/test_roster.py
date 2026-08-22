@@ -1,4 +1,5 @@
 import subprocess
+from typing import ClassVar
 
 from gunkata.adb import AdbDeviceEntry
 from gunkata.common.paths import Paths
@@ -11,9 +12,9 @@ class _FakeAdb:
     """Stands in for gunkata.adb.Adb: a class-level device list plus
     per-serial shell responses, so each device can behave differently."""
 
-    _entries = [AdbDeviceEntry("emulator-5554", "device")]
-    _shell_responses: dict[tuple[str, str], subprocess.CompletedProcess] = {}
-    getprop_calls: list[str] = []
+    _entries: ClassVar[list[AdbDeviceEntry]] = [AdbDeviceEntry("emulator-5554", "device")]
+    _shell_responses: ClassVar[dict[tuple[str, str], subprocess.CompletedProcess]] = {}
+    getprop_calls: ClassVar[list[str]] = []
 
     def __init__(self, serial: str):
         self.serial = serial

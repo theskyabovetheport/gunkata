@@ -771,7 +771,7 @@ name`/`device tag add`/`device tag remove`):
 A change is done when the **whole** suite is green — never just the package's:
 
 ```bash
-uv run pytest
+scripts/check.sh
 ```
 
 The per-module run is the inner loop, not the gate — two failure classes are
@@ -779,10 +779,16 @@ invisible to it: construction/wiring (guard with a smoke test per CLI
 command), and cross-package invariants (a rule stated in one package is
 routinely guarded in another).
 
-**This repository has no consolidated gate script yet — `uv run pytest` is
-the whole of the Definition of Done.** No lint or docs-build check is wired
-in; the maintainer owns adding one. No guard: whether the whole suite was
-actually run before calling a change done is known only to whoever ran it.
+**Every gate this repo has is run from `scripts/check.sh`: ruff, then an
+`mkdocs build --strict`, then the suite.** When there is no CI, this script
+is the whole of it. No guard: whether it was actually run before calling a
+change done is known only to whoever ran it.
+
+**`scripts/check.sh` deselects `-m emulator` tests; the maintainer owns
+running them separately, `uv run pytest -m emulator` against a device
+`scripts/run_emulator.sh` boots** — no CI or gate here has a real device to
+target. No guard: which tests are marked `emulator` is a fact about the
+suite, not about this script.
 
 # Branches & Worktrees
 

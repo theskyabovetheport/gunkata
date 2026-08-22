@@ -1,0 +1,9 @@
+site_name: gunkata
+site_description: Tools to improve security research workflows for Android devices
+repo_url: https://github.com/theskyabovetheport/gunkata
+docs_dir: docs
+site_dir: site
+strict: true
+
+nav:
+  - Home: index.md

@@ -40,7 +40,7 @@ def _roster() -> DeviceRoster:
         list_config = ListConfig.load(paths.list_config_path)
     except ListConfigError as exc:
         typer.echo(f"{paths.list_config_path}: {exc}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     return DeviceRoster(list_config, DeviceInfoStore(paths), AdbFactory())
 
 
@@ -99,7 +99,7 @@ def _edit_list_config() -> None:
         editor_bin = resolve_editor()
     except EditorNotFoundError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     current = ListConfig.read_body(paths.list_config_path)
     edited = launch(
         editor_bin, initial=current.encode(), suffix="-gunkata-list-config.yaml"
@@ -108,7 +108,7 @@ def _edit_list_config() -> None:
         ListConfig.parse(edited.decode())
     except ListConfigError as exc:
         typer.echo(f"not saved: {exc}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     paths.list_config_path.parent.mkdir(parents=True, exist_ok=True)
     paths.list_config_path.write_bytes(edited)
     typer.echo(f"saved {paths.list_config_path}")
@@ -143,7 +143,7 @@ def _select_device() -> None:
         number = int(raw)
     except ValueError:
         typer.echo(f"not a number: {raw!r}", err=True)
-        raise typer.Exit(2)
+        raise typer.Exit(2) from None
     if not 1 <= number <= len(rows):
         typer.echo(f"no such number: {number}", err=True)
         raise typer.Exit(1)
@@ -210,7 +210,7 @@ def device_note(
             editor_bin = resolve_editor(editor)
         except EditorNotFoundError as exc:
             typer.echo(str(exc), err=True)
-            raise typer.Exit(1)
+            raise typer.Exit(1) from None
         message = launch(editor_bin, suffix="-gunkata-note.txt").decode()
     if not message.strip():
         typer.echo("empty note, not saved", err=True)
@@ -256,7 +256,7 @@ def device_env(
         settings = store.environment(serial)
     except DeviceSettingsError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     for key, value in settings.items():
         typer.echo(f"export {key}={shlex.quote(value)}")
 
@@ -266,12 +266,12 @@ def _edit_env(store: DeviceSettingsStore, serial: str) -> None:
         current = store.load(serial)
     except DeviceSettingsError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     try:
         editor_bin = resolve_editor()
     except EditorNotFoundError as exc:
         typer.echo(str(exc), err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     edited = launch(
         editor_bin, initial=_format_exports(current).encode(), suffix="-gunkata-env.sh"
     )
@@ -279,7 +279,7 @@ def _edit_env(store: DeviceSettingsStore, serial: str) -> None:
         settings = _parse_exports(edited.decode())
     except DeviceSettingsError as exc:
         typer.echo(f"not saved: {exc}", err=True)
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
     store.replace(serial, settings)
     typer.echo(f"saved {serial}'s settings")
 

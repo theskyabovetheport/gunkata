@@ -228,7 +228,9 @@ def test_boot_completed_is_awaited_before_relaunch(monkeypatch):
 def test_boot_timeout_raises_when_the_device_never_comes_back(monkeypatch):
     launches = [0]
     monkeypatch.setattr(session_mod, "Xephyr", _fake_xephyr_class(launches, close_after=None))
-    monkeypatch.setattr(session_mod.subprocess, "Popen", lambda argv, env=None: pytest.fail("never launched"))
+    monkeypatch.setattr(
+        session_mod.subprocess, "Popen", lambda argv, env=None: pytest.fail("never launched")
+    )
 
     device = _FakeDevice("emulator-5554", boot_completed_sequence=["0"])
     repo = _FakeRepo(Path("/opt/scrcpy/scrcpy"))

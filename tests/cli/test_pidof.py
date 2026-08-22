@@ -3,7 +3,7 @@ import subprocess
 
 from typer.testing import CliRunner
 
-from gunkata.cli import fzf, pidof
+from gunkata.cli import fzf, pidof  # noqa: F401 -- pidof imported for command registration
 from gunkata.cli.app import app
 
 # The `gunkata.device` attribute is the package's device() factory function,

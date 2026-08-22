@@ -11,9 +11,9 @@ from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path
 
+from ..common.download import BinaryDownloader
 from ..common.paths import Paths
 from ..shell import Shell
-from ..common.download import BinaryDownloader
 from .settings import FridaSettings
 
 _VERSION = re.compile(r"\d+\.\d+\.\d+")

@@ -137,6 +137,6 @@ class DeviceRoster:
     def _align(table: list[list[str]]) -> str:
         widths = [max(len(row[i]) for row in table) for i in range(len(table[0]))]
         return "\n".join(
-            "  ".join(cell.ljust(w) for cell, w in zip(row, widths)).rstrip()
+            "  ".join(cell.ljust(w) for cell, w in zip(row, widths, strict=True)).rstrip()
             for row in table
         )

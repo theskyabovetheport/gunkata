@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -73,14 +73,14 @@ def test_tags_are_stored_one_per_line(store, tmp_path):
 
 
 def test_add_note_appends_a_timestamped_entry(store, tmp_path):
-    when = datetime(2026, 8, 12, 16, 30, 0, tzinfo=timezone.utc)
+    when = datetime(2026, 8, 12, 16, 30, 0, tzinfo=UTC)
     store.add_note("emulator-5554", "first note", when=when)
     path = Paths(root=tmp_path).device_note_path("emulator-5554")
     assert path.read_text() == "### 2026-08-12T16:30:00+00:00\nfirst note\n\n"
 
 
 def test_add_note_appends_rather_than_overwrites(store, tmp_path):
-    when = datetime(2026, 8, 12, 16, 30, 0, tzinfo=timezone.utc)
+    when = datetime(2026, 8, 12, 16, 30, 0, tzinfo=UTC)
     store.add_note("emulator-5554", "first", when=when)
     store.add_note("emulator-5554", "second", when=when)
     contents = Paths(root=tmp_path).device_note_path("emulator-5554").read_text()
@@ -90,7 +90,7 @@ def test_add_note_appends_rather_than_overwrites(store, tmp_path):
 
 
 def test_add_note_strips_surrounding_whitespace(store, tmp_path):
-    when = datetime(2026, 8, 12, 16, 30, 0, tzinfo=timezone.utc)
+    when = datetime(2026, 8, 12, 16, 30, 0, tzinfo=UTC)
     store.add_note("emulator-5554", "  padded note  \n\n", when=when)
     path = Paths(root=tmp_path).device_note_path("emulator-5554")
     assert path.read_text() == "### 2026-08-12T16:30:00+00:00\npadded note\n\n"
