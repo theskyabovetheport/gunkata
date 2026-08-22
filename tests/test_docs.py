@@ -35,8 +35,8 @@ HISTORY_FILE_GLOBS = ("CHANGELOG*", "HISTORY*", "MIGRATION*", "TODO.md", "NOTES.
 #: shows up in review. Deliberately not file-scoped.
 EXEMPTION_MARKER = "noqa: history"
 
-#: Each pattern is narrowed to the historical sense of its phrase. "used to"
-#: is restricted to "used to be" -- bare "used to" is overwhelmingly "is used
+#: Each pattern is narrowed to the historical sense of its phrase. "used to" history-ok
+#: is restricted to "used to be" -- bare "used to" is overwhelmingly "is used history-ok
 #: to parse X". "legacy" is absent on purpose: it names real Android API
 #: surface in this repo's domain, so it cannot be distinguished from prose.
 HISTORY_PHRASES = (

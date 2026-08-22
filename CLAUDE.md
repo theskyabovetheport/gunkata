@@ -1,5 +1,147 @@
 # CLAUDE.md
 
+# No history outside git
+
+**Never write history into anything but a commit message.** Guarded by
+`doctrine test`, run from the pre-commit hook; exempt a line that genuinely
+needs a banned phrase with a `history-ok` marker on that line. This governs
+code, comments, docstrings, READMEs, docs, config files, and replies. Git
+records what changed; nothing else may.
+
+Banned outright — if a sentence only parses for someone who saw the previous
+version, delete it:
+
+- "used to", "previously", "formerly" <!-- history-ok -->
+- "no longer", "any more", "it is gone" <!-- history-ok -->
+- "an earlier version", "this replaced" <!-- history-ok -->
+- "X was tried and removed" <!-- history-ok -->
+- changelog, "what changed", or "recently completed" sections
+- any comment that explains code by describing the code it replaced
+
+Rationale is present tense — a fact about the code that exists:
+
+- ✗ `logger used to be here and is gone: it returned non-zero on some hosts.` <!-- history-ok -->
+- ✓ `No logger here: it returns non-zero on hosts with no syslog socket.`
+
+**Rewording past the scan is not a repair.** A present-tense sentence
+carrying the same fact is the same violation, and no phrase list can see
+it. The test is the source of the claim: true only because of a version
+that is gone — delete it, the commit message holds it; true of something
+that exists, like data an older build left on disk or a format another
+project ships — it is a rule, so write what it forbids now rather than
+what happened then. No guard: which of the two a sentence is cannot be
+read from its words.
+
+**Negative knowledge is the one exception, and it lives in CLAUDE.md** — one
+sentence each, as a rule and never as a story: what must not be reintroduced,
+and what it breaks. Code cannot record what is absent from it. The line is
+whether the thing actually shipped: an option considered and dropped, or an
+intermediate state of the change you are making, earns nothing. No guard:
+whether a thing shipped is a reading of the repository's past that no scan
+of its present tree can make.
+
+**Be exhaustive in the commit message.** That is the one place history
+belongs. No guard: what a message leaves out is visible only to a reader
+who knows the change; no hook can measure the absence.
+
+# Work on a branch, in a worktree
+
+- **Create the branch before starting the work.** No guard: the first
+  moment a hook can fire is the first commit, when the work has already
+  landed on whatever branch was checked out.
+- **Create worktrees under `.claude/worktrees/`** — `git worktree add
+  .claude/worktrees/<branch> <branch>`, never a sibling directory. No
+  guard: a sibling directory is outside this repository, where none of
+  its hooks run.
+- Verify the base ref before creating a worktree — a local remote can lag the
+  local branch. Confirm the current branch before committing.
+- **Never check out a branch in the root checkout.** The root holds the
+  default branch; every other branch gets its own worktree. No guard: by
+  the time a pre-commit hook fires, the checkout has already happened and
+  the damage is done.
+- **The gate is the merge, not the commit.** Commit to a feature branch
+  freely; never merge to the default branch without being asked. "Commit
+  this" is not "merge this". No guard: which merges were asked for is
+  known only to the person who asked; a hook cannot tell a sanctioned
+  merge from a stray one.
+
+# No invented numbers
+
+**Never invent a threshold, a limit, a timeout, a retry count, or a size
+cap.** A number that governs behaviour comes from a source outside the
+writer's head: a measurement taken on this machine, a documented limit of
+what the code talks to, a published standard, or the person who asked for
+the work. No guard: a scan reads the literal and cannot tell a measured
+number from a plausible one.
+
+- **When no source has the number, ask the person who asked for the
+  work** — for the value, or for what to measure to get it — and leave it
+  unwritten until the answer comes. No guard: whether anyone was asked is
+  known only to the parties of that conversation.
+- **Name the source beside the number**, in the present tense: the
+  standard, the documented cap, or the measurement and the machine it ran
+  on. No guard: the presence of a citation is not its truth, and which
+  number it covers only a reader can say.
+- Not a threshold, and nothing to ask about: a value the code derives at
+  run time from what it read, and a constant the format or the protocol
+  fixes whose definition the code names.
+
+# Name it, never copy it
+
+**A rule points at code by name and never restates what the code says.**
+A name — `Class.method`, a test, a file, a heading — survives every edit
+but a rename, and a rename fixes the pointer in the same commit. A copied
+value, path, default, signature, or list of call sites goes stale the
+moment the code moves and reads as true until someone acts on it. Guarded
+by `doctrine test` (dangling-test-pointer) for the test names it resolves;
+the rest has no guard: a copy and a boundary read alike to a scanner.
+
+- **The rename test decides: if an edit that renames nothing can make the
+  sentence false, it is a copy.** Delete it, or put the fact beside the
+  code and name that place. No guard: whether a sentence still tracks the
+  code is a reading of both.
+- **A pointer is bare** — the exact name, and nothing about what the
+  referent does or holds. A sentence may follow it only if it stays true
+  when the referent's internals change but its name and role do not. No
+  guard: a gloss and a boundary sentence read alike to a scanner.
+- What the tree does not hold stays: a limit of an external tool, the
+  consequence of breaking the rule, a fact no reader can derive from the
+  code. Exposition belongs in the README, which describes rather than
+  enumerates: a list the tree also holds is a copy wherever it sits.
+
+# Be frugal in writing
+
+**Cut the paragraph and reread what remains: where no reader does anything
+differently, it does not go in.** This binds text that instructs — a rule,
+a docstring, a comment, an error's remedy. The commit message is exempt,
+where being exhaustive is the law. No guard: whether a paragraph changes
+what someone does is a reading of it and of its reader.
+
+# No legacy code
+
+**Delete what a version that is gone left behind.** A shim keeping an old
+call shape alive, a branch reachable only from something already deleted,
+a `v2` beside a `v1` nobody calls: git holds it, and the tree carries only
+what runs. No guard: a scanner sees a live function whether or not
+anything still needs it.
+
+- **What serves something that exists is not legacy.** A reader for data
+  on disk, a route a peer still calls, a flag a config still sets — the
+  supported case is named in the present tense, and the code stays. No
+  guard: which callers exist is a fact about the world, not about the
+  tree.
+- **Delete rather than deprecate.** Where consumers outside the
+  repository make a window unavoidable, the condition that ends it comes
+  from them, never from the writer. No guard: whether a consumer exists
+  cannot be read from this repository.
+- **Legacy stays where the person who asked for the work says it stays.**
+  The keeping is one sentence in CLAUDE.md — what is kept, and the
+  condition that removes it — written as a rule and never as the story of
+  how it got there; silence is not approval. No guard: which keepings were
+  sanctioned is known only to the parties of that conversation.
+
+# CLAUDE.md
+
 Tools to improve security research workflows for Android devices
 
 ---
@@ -8,26 +150,37 @@ Tools to improve security research workflows for Android devices
 
 - **State each invariant once, split by job.** README states the *property*;
   CLAUDE.md states the *rule that protects it* plus the guard test's name.
-  Never restate one in the other — they drift.
+  Never restate one in the other — they drift. No guard: whether a fact
+  appears in both files is a reading of prose no scanner performs.
 - **A CLAUDE.md invariant is a rule plus its guards**: a bold imperative, at
   most a sentence or two of why, and the names of the tests that pin it. The
   full rationale lives at exactly one durable home — the enforcement site's
   docstring, the module README, an ADR, or the guarding test's docstring — and
-  CLAUDE.md *points* there instead of restating it.
+  CLAUDE.md *points* there instead of restating it. No guard: whether a
+  sentence points versus restates the rationale is a judgement only a
+  reviewer can make.
 - **Cross-cutting rules live only in the root CLAUDE.md.** A module CLAUDE.md
-  holds only its *local* rules and points to root for shared ones.
+  holds only its *local* rules and points to root for shared ones. No guard:
+  this repository carries a single CLAUDE.md, so the rule has nothing to
+  violate yet.
 - **A pointer must resolve.** Cite tests by exact name, sections by exact
-  heading; a rename that breaks a pointer fixes the pointer in the same commit.
-  <Guard with a doc-contract test once the repo has a few modules.>
+  heading; a rename that breaks a pointer fixes the pointer in the same
+  commit. Guarded by `doctrine test` (dangling-test-pointer) for the test
+  names a CLAUDE.md cites; a section-heading pointer has no such check yet.
 - **A module earns a recipe once a kind repeats.** Write `## Adding a <thing>`
   — the ordered list of edits a correct addition makes, guard tests named — in
-  the commit that creates the *second* instance of the kind.
+  the commit that creates the *second* instance of the kind. No guard:
+  whether a second instance of a kind has appeared is a judgement only a
+  reviewer makes.
 - **An invariant that blocks the task is a question, never a judgement call.**
   Read its pointer first; if it still blocks, stop and ask. Never work around
   one silently. Changing a rule edits its CLAUDE.md entry, its guard test, and
-  the code in the same commit.
+  the code in the same commit. No guard: whether a blocker was actually
+  raised and asked about is known only to the parties of that conversation.
 - **Mark a workaround as a workaround, with its removal condition** — "this is
   a workaround, not a design; when <X> lands, move it; do not entrench it."
+  No guard: recognizing a workaround in code is a judgement a scanner cannot
+  make.
 - No other top-level doc files unless the user explicitly asks.
 - Deferred work lives in <the tracker>, never in module-local TODO files.
   Resolve an item by closing it in the same commit that resolves it, moving
@@ -37,21 +190,23 @@ Tools to improve security research workflows for Android devices
 # History
 
 **The checkout says what is true now. Git says how it got that way.** Two
-rules, firing at different moments — you need both.
+rules, firing at different moments — you need both. No guard: this sentence
+introduces the two rules below; each carries its own guard or reason.
 
 **Never write history into a tracked file.** Banned in every file you edit:
 changelogs, "recently completed" sections (in files *and* in the tracker),
 migration notes, dated TODOs, commented-out old code, and any comment of the
-form `# was:`, `# changed from`, `# previously`, `# as of v2`, `# no longer`,
+form `# was:`, `# changed from`, `# previously`, `# as of v2`, `# no longer`, <!-- history-ok -->
 `# kept for compat`. Test: if your line only makes sense to a reader who saw
 the previous version, it belongs in the commit message. Delete it and write
-it there. Guards: `test_no_history_prose_in_tree` and
+it there. Guarded by `test_no_history_prose_in_tree` and
 `test_no_history_files_in_tree`, in `tests/test_docs.py`.
 
 **Never answer a "why" or "when" question from the tree.** Trigger phrases:
-"why is this like this", "when did this change", "what did this used to do",
+"why is this like this", "when did this change", "what did this used to do", <!-- history-ok -->
 "who decided", "was this intentional". These have no answer in the checkout,
-by design. Run git:
+by design. No guard: whether a given answer came from git or was guessed
+from the code is legible only to whoever wrote it. Run git:
 
 ```bash
 git log -S'<exact text>' -- <path>   # when this string appeared/vanished
@@ -62,14 +217,18 @@ git show <sha>:<path>                # the file as of that commit
 
 **If git does not answer it, say "git does not record this."** Do not infer
 intent from the code. A reconstructed rationale is indistinguishable from a
-real one to the reader, and wrong about half the time.
+real one to the reader, and wrong about half the time. No guard: whether a
+stated rationale was reconstructed or read from git is not visible in the
+text alone.
 
 **One exception, narrow: negative knowledge lives in CLAUDE.md, compressed to
 a sentence** — a design that *shipped and was reverted* and would regress if
 reintroduced. Code cannot record what is absent from it, so this is the one
 rationale a pointer cannot serve. The test is a single question: was it ever
 merged to the default branch? No → not a tombstone; it is a changelog entry
-in the wrong place. Do not write it.
+in the wrong place. Do not write it. No guard: whether a design shipped and
+was reverted is a fact about history no scan of the present tree can
+confirm.
 
 # General Conventions
 
@@ -78,15 +237,19 @@ in the wrong place. Do not write it.
   Secrets come only from the environment, never committed.
 - **Every atom carries a single identity; aliases are forbidden.** The name a
   thing is stored under is the name it is read under. Every alias is a mapping
-  somebody must maintain and eventually forgets.
+  somebody must maintain and eventually forgets. No guard: an alias is
+  invisible to a scanner that only ever reads one name at a time.
 - **Every served value is honest to the ground, and every failure is loud.**
   A value a caller receives either was observed or is the declared consequence
   of a stated policy — never a library default nobody chose. Loud means a
   refusal naming the path it refused, never a plausible number that flows on.
+  No guard: whether a value was observed or is a policy's declared consequence
+  is a fact about the code path, not its text.
 - **Write nothing before its caller.** A constant, field, parameter, or hook
   with no consumer is a guess nobody re-examines. Add the consumer in the same
   commit, or do not add the code. The question is "what breaks today if I
-  leave it out".
+  leave it out". No guard: whether a new symbol already has a consumer is a
+  fact about the diff, not something a static scan resolves in general.
 - **A device's persisted settings load exactly once, in `Device.__init__`,
   and the environment outranks them.** Loading in `Adb` instead would charge a
   roster fan-out one file read per serial and let one device's stored values
@@ -94,7 +257,7 @@ in the wrong place. Do not write it.
   dict is shared by `Su` and `Shell`'s settings, each ignoring the other's
   keys, rather than each reading the file itself. `DeviceSettingsStore.environment`
   is the only reader — it applies the precedence rule, so no consumer
-  re-implements the comparison. Guards:
+  re-implements the comparison. Guarded by
   `test_shell_defaults_to_root_when_the_device_persisted_default_user`,
   `test_an_exported_value_outranks_the_persisted_one`, and
   `test_another_devices_settings_do_not_reach_this_one` in
@@ -119,7 +282,7 @@ in the wrong place. Do not write it.
   never reaching into either one's fields itself. `has_root` calls the bare
   form rather than `shell(user="root")` for a related reason: it measures
   what `default_user` actually grants, not what an explicit override could
-  force. Guards: `test_shell_wraps_via_su_for_any_explicit_user_other_than_shell`,
+  force. Guarded by `test_shell_wraps_via_su_for_any_explicit_user_other_than_shell`,
   `test_shell_never_wraps_the_shell_user_even_named_explicitly`,
   `test_shell_bare_default_tolerates_a_command_template_without_a_user_placeholder`,
   `test_shell_defaults_to_shell_user_by_default`, and
@@ -138,7 +301,7 @@ in the wrong place. Do not write it.
   A template containing a single quote anywhere is rejected loudly at
   `Su.__init__`, rather than silently double-quoting the first time a
   command needs escaping. See `Su.wrap`'s docstring for the full
-  rationale. Guards: `test_wrap_escapes_a_command_that_quotes_itself`,
+  rationale. Guarded by `test_wrap_escapes_a_command_that_quotes_itself`,
   `test_wrap_escapes_a_command_that_quotes_itself_against_a_custom_template`,
   and `test_su_rejects_a_command_template_containing_a_single_quote` in
   `tests/test_shell.py`.
@@ -157,7 +320,7 @@ in the wrong place. Do not write it.
   the final path component and a relative or basename-less path. Only `pull`
   and `pull_tree` validate this way; `pull_file`, `push_file`, `read_file`, and
   `write_file` stay unvalidated, so the whitelist is not yet a `Shell`-wide
-  invariant. Guards: `test_pull_refuses_a_shell_metacharacter`,
+  invariant. Guarded by `test_pull_refuses_a_shell_metacharacter`,
   `test_pull_refuses_a_device_path_ending_in_a_newline`,
   `test_pull_refuses_a_wildcard_outside_the_last_component`,
   `test_pull_refuses_root_for_having_no_basename`,
@@ -169,7 +332,7 @@ in the wrong place. Do not write it.
   `Shell._TAR_STREAM_COMMAND`.** Both cd into `dpath`'s parent and tar
   `./<pattern>` — a directory's own name for one, a glob for the other — so
   a tar member's own recorded path, not a branch in this code, decides
-  whether it lands flat or nested under a name. Guards:
+  whether it lands flat or nested under a name. Guarded by
   `test_pull_tree_builds_the_verbatim_shape_for_a_glob` and
   `test_pull_tree_builds_the_same_shape_for_a_directory` in
   `tests/test_shell.py`.
@@ -178,7 +341,7 @@ in the wrong place. Do not write it.
   `_TAR_STREAM_COMMAND`'s `[ -e ] || [ -h ] || exit 90` guard — both read
   off `Shell._MISSING_FILE_RC`, so the sentinel cannot drift between the two
   commands that use it. A `tarfile.ReadError` racing the same rc must never
-  be believed over it. Guards:
+  be believed over it. Guarded by
   `test_read_file_raises_file_not_found_when_the_remote_path_is_missing` and
   `test_pull_tree_rc_90_raises_file_not_found_never_the_read_error` in
   `tests/test_shell.py`.
@@ -190,7 +353,7 @@ in the wrong place. Do not write it.
   must already hold. Merging is the consequence: a repeat pull overwrites what
   it re-lands and leaves the rest, so a local tree stops matching the device
   once a file is deleted there. Clearing first would trade a partial tree for
-  a deleted one. Guards:
+  a deleted one. Guarded by
   `test_pull_tree_refuses_a_destination_that_does_not_exist`,
   `test_pull_of_a_plain_file_refuses_a_destination_directory_that_does_not_exist`,
   and `test_pull_tree_merges_into_a_tree_that_is_already_there` in
@@ -205,28 +368,34 @@ in the wrong place. Do not write it.
   `Stream` documents is a contract another module depends on, not a local
   nicety. This is also why `_raise_if_failed` carries no `returncode is None`
   branch: the state is unreachable, and admitting it either swallows a real
-  failure or reports `rc=None`. See `Stream.close`'s `Design:` note. Guards:
+  failure or reports `rc=None`. See `Stream.close`'s `Design:` note. Guarded by
   `test_close_does_not_return_until_a_racing_close_has_reaped` and
   `test_a_racing_close_neither_swallows_a_failure_nor_invents_one` in
   `tests/test_stream.py`.
 - **When two concepts clash, pick the new one and wipe the old** — code,
   tests, docs, wiring. Never demote the loser to a fallback or a compat layer.
+  No guard: recognizing which of two clashing concepts is newer is a
+  judgement call, not a pattern a scan can make.
 - **Reach a Protocol's implementations through a factory, never a registry
   constant.** A hand-maintained tuple cannot fail when someone forgets to
-  extend it; a factory raises on an id it cannot resolve.
+  extend it; a factory raises on an id it cannot resolve. No guard: which
+  construction path a caller takes is invisible to a scan of any single file.
 - **Measure before asserting, when measuring is cheap.** A claim about what
   the data holds is checked, not reasoned to. When the measurement is
   expensive, stop and ask, naming what you would measure, its cost, and what
-  each outcome would change.
+  each outcome would change. No guard: whether a claim was actually measured,
+  or only reasoned to, is a fact about how it was written, not its text.
 - **Any question about *code* goes to the language server; search is for
   *text*.** Definitions, references, call graphs: LSP. String literals, env
   vars, config keys, prose: `rg` (honors `.gitignore`; `grep -r` scans ignored
   trees). Pyright needs a `[tool.pyright]` block in `pyproject.toml` or it
   under-reports silently. `goToImplementation` is unsupported — Protocol
-  satisfiers have no tool.
+  satisfiers have no tool. No guard: which tool answered a given question is
+  not recorded anywhere a scanner reads.
 - **Explain a cross-component problem with the data-flow graph, never prose
   alone.** One node per component; mark what each *knows* and what it
-  *decides*.
+  *decides*. No guard: whether an explanation included a graph is a property
+  of prose, not of tracked code.
 - Inline comments answer "why", not "how". No meta-comments describing how the
   code changed — that is what git is for.
 
@@ -247,7 +416,7 @@ in the wrong place. Do not write it.
   `configure_logging` is `LogSettings`' only consumer. Accepts either a bare
   number or a level name (`DEBUG`, `INFO`, ...), case-insensitively; an
   unrecognized value raises loudly rather than falling back to a default.
-  Guard: `tests/cli/test_logging_config.py`.
+  Guarded by `tests/cli/test_logging_config.py`.
 - **As a library, gunkata configures nothing global.** Every module logger is
   `logging.getLogger(__name__)`, and every module lives under the `gunkata`
   package, so every logger is a descendant of `"gunkata"` by construction --
@@ -258,7 +427,7 @@ in the wrong place. Do not write it.
   convenience, never called from library code, since it reaches past
   gunkata's hierarchy to the real root logger. No `NullHandler` is attached
   on import: `logging.lastResort` already covers an unconfigured caller, and
-  `__init__.py` holds no logic to attach one with. Guard:
+  `__init__.py` holds no logic to attach one with. Guarded by
   `test_every_logger_descends_from_package_root` in
   `tests/test_logging_config.py`.
 - <Optionally: persist every record to a per-component `journal.jsonl` and
@@ -271,7 +440,8 @@ in the wrong place. Do not write it.
 - **The CLI is built on Typer, exposed as the single `gunkata` console script**
   (`gunkata.cli.main:main`). One shared `app`, defined once in `gunkata/cli/app.py`;
   every command module imports it and registers on it, never a second Typer
-  app or a second entry point.
+  app or a second entry point. No guard: a second app or entry point is a
+  wiring choice no scan of a single module reveals.
 - **`gunkata/cli/` holds one module per command** (`addr.py`, `procmaps.py`,
   ...), named for the command. A command that is itself a group of
   subcommands (`mem read`/`mem write`) gets one module for the group, since
@@ -279,12 +449,14 @@ in the wrong place. Do not write it.
   command needs — completion (`completion.py`), fzf picking (`fzf.py`), tty
   detection (`tty.py`) — gets its own shared module; a command module imports
   what it needs by name so tests can monkeypatch it on that command's own
-  namespace.
+  namespace. No guard: which module a command's code landed in is a layout
+  fact only a reviewer checks.
 - **Every command scopes to a device with a bare `Adb()`.** `Adb.__init__`
   resolves which device by priority: an explicit serial argument, then
   `$ANDROID_SERIAL`, else auto-detecting the sole connected device (raising
   on zero or multiple) -- the same environment variable real `adb` itself
-  honors. No *subcommand* takes its own serial option; see `test_adb.py`.
+  honors. No *subcommand* takes its own serial option. Guarded by
+  `test_adb.py`.
 - **`gunkata`'s own root callback carries `-s`/`-U`/`-C`, mirroring `adb -s`:
   a global option that must precede the subcommand it affects, rather than
   being repeated on every command that needs it.** `-s` and `-U` set
@@ -295,7 +467,7 @@ in the wrong place. Do not write it.
   core class gained a new parameter to carry them. `-C` has no such setting:
   it is `gunkata shell`'s own chdir-before-attach value, with exactly one
   consumer, so it travels there via `ctx.obj` rather than becoming a
-  `GUNKATA_*` variable no other command would ever read. Guards:
+  `GUNKATA_*` variable no other command would ever read. Guarded by
   `test_root_serial_option_sets_android_serial_before_the_subcommand_runs`
   and `test_root_user_option_sets_the_default_user_env_var_before_the_subcommand_runs`
   in `tests/cli/test_app.py`;
@@ -304,13 +476,15 @@ in the wrong place. Do not write it.
   `tests/cli/test_shell.py`.
 - **A command body is presentation only** — parse args, call into
   `gunkata.core`, render the result. No logic in the command; that lives in
-  core.
+  core. No guard: whether a command module holds logic beyond parsing and
+  rendering is a judgement on its code, not a pattern to grep for.
 - **Marshalling user-facing syntax is a CLI concern, not core's.** Parsing a
   CLI-specific string format — an address expression, a name resolved to a
   pid — into the plain value a core class's method takes lives in the command's
   own module under `gunkata/cli/`. A core class stays a lean API: its methods
   take resolved values (`int`, `bytes`, a real object), never a string a user
-  typed at it.
+  typed at it. No guard: whether a core method takes a resolved value or a
+  user string is a judgement on its signature, not a fixed pattern.
 
 - **`gunkata shell` always replaces this process with `adb shell`, and asks
   for a device pty only when stdin *and* stdout are terminals.** Capturing a
@@ -318,7 +492,7 @@ in the wrong place. Do not write it.
   never exits or draws a UI shows nothing at all; and a pty merges stderr into
   stdout and translates newlines, so a redirected stream must not get one --
   adb's own `-t` consults stdin alone and would. See `Shell.execvp_sh`'s
-  `Design:` note. Guards:
+  `Design:` note. Guarded by
   `test_execvp_sh_runs_a_command_instead_of_attaching_when_given_one` and
   `test_execvp_sh_omits_the_pty_flag_when_no_pty_was_asked_for` in
   `tests/test_shell.py`;
@@ -333,14 +507,14 @@ in the wrong place. Do not write it.
   that same frame. This is why the window's position and size need no
   persistence: the frame is an ordinary window no WM ever unmaps or remaps,
   so it stays exactly where it was put. See `ScrcpySession`'s `Design:` note.
-  Guards: `test_a_device_reboot_relaunches_scrcpy_into_the_same_frame` and
+  Guarded by `test_a_device_reboot_relaunches_scrcpy_into_the_same_frame` and
   `test_the_frame_dying_ends_the_session_and_reaps_scrcpy` in
   `tests/scrcpy/test_session.py`.
 - **scrcpy is launched against the frame's own X display, never the host's,
   with `SDL_VIDEODRIVER=x11` and no `WAYLAND_DISPLAY`.** In a Wayland
   session, SDL can otherwise pick a Wayland backend and open scrcpy's window
   on the host compositor, escaping the frame while appearing to work. See
-  `ScrcpySession._launch`'s `Design:` note. Guards:
+  `ScrcpySession._launch`'s `Design:` note. Guarded by
   `test_scrcpy_runs_against_the_frame_display_never_the_host` in
   `tests/scrcpy/test_session.py`.
 - **No *host* window manager is ever consulted by `gunkata scrcpy`** -- no
@@ -351,7 +525,7 @@ in the wrong place. Do not write it.
   WM, X11 or XWayland. `matchbox-window-manager` running *inside* the
   nested display is a different thing entirely -- see the next entry --
   and is deliberately excluded from this guard rather than being what it
-  guards against. Guard: `test_no_window_manager_is_ever_consulted` in
+  guards against. Guarded by `test_no_window_manager_is_ever_consulted` in
   `tests/scrcpy/test_xephyr.py`.
 - **`Xephyr` runs `matchbox-window-manager` inside its own nested display,
   alongside scrcpy.** Verified against a live emulator: with no WM inside
@@ -361,7 +535,7 @@ in the wrong place. Do not write it.
   host WM above, this is not optional. matchbox is frame-scoped, not
   scrcpy-scoped: `Xephyr._start`/`_stop` own its lifetime, so it outlives
   every scrcpy relaunch rather than being restarted alongside one. See
-  `Xephyr`'s `Design:` note. Guards:
+  `Xephyr`'s `Design:` note. Guarded by
   `test_matchbox_is_started_inside_the_frames_own_display` and
   `test_a_missing_matchbox_binary_names_the_package_and_stops_the_frame`
   in `tests/scrcpy/test_xephyr.py`.
@@ -369,7 +543,7 @@ in the wrong place. Do not write it.
   screen follows whatever size the host WM gives the frame, so any geometry
   named at launch is right only until the first resize; matchbox maximizes
   scrcpy against the nested screen's current size instead. See
-  `ScrcpySession._argv`'s `Design:` note. Guards:
+  `ScrcpySession._argv`'s `Design:` note. Guarded by
   `test_scrcpy_argv_carries_the_serial_and_extra_args` and
   `test_scrcpy_is_never_given_a_window_geometry` in
   `tests/scrcpy/test_session.py`.
@@ -380,7 +554,7 @@ in the wrong place. Do not write it.
   shipped once and must not come back** -- Xephyr then declares min size ==
   max size, which i3 auto-floats, and a WM forced to tile it anyway exposes
   outer window past the nested screen that Xephyr never paints, showing
-  stale pixels there. See `Xephyr`'s `Design:` note. Guard:
+  stale pixels there. See `Xephyr`'s `Design:` note. Guarded by
   `test_the_nested_screen_is_resizeable` in `tests/scrcpy/test_xephyr.py`.
 - **The frame opens at the host screen's size, and no option sets that
   size.** Measured against a live emulator: Xephyr confines the pointer to the
@@ -392,7 +566,7 @@ in the wrong place. Do not write it.
   growing past the opening size is what strands clicks. **Tombstone:
   `frame_width`/`frame_height` settings and `-W`/`-H` options shipped and were
   removed for exactly this -- any size a user can choose is a size the WM can
-  exceed.** See `Xephyr._host_screen_size`'s `Design:` note. Guards:
+  exceed.** See `Xephyr._host_screen_size`'s `Design:` note. Guarded by
   `test_the_frame_opens_at_the_host_screens_size` and
   `test_no_host_display_is_refused_before_anything_starts` in
   `tests/scrcpy/test_xephyr.py`; `test_scrcpy_takes_no_frame_size_options` in
@@ -406,7 +580,7 @@ in the wrong place. Do not write it.
   two samples differing in both, neither number is a fix point and everything
   between is untested -- which is why the wording claims no defect. i3 is
   identified from `_NET_SUPPORTING_WM_CHECK`, never from being on PATH, so an
-  i3 installed beside another WM is never warned about. Guards:
+  i3 installed beside another WM is never warned about. Guarded by
   `test_an_old_host_x_server_warns_loudly`, `test_an_old_i3_warns_loudly`,
   `test_an_i3_that_is_not_the_running_wm_is_not_warned_about`, and
   `test_a_tested_host_warns_about_nothing` in `tests/scrcpy/test_xephyr.py`.
@@ -421,7 +595,7 @@ in the wrong place. Do not write it.
   pointer back. `ScrcpySession` calls it on a resize *after* reaping scrcpy, so
   the probe's own motion cannot reach the device. See that method's `Design:`
   note.
-  Guards: `test_a_pointer_bounded_short_of_the_screen_warns_loudly`,
+  Guarded by `test_a_pointer_bounded_short_of_the_screen_warns_loudly`,
   `test_a_pointer_that_reaches_the_screen_warns_about_nothing`, and
   `test_the_pointer_probe_puts_the_pointer_back` in
   `tests/scrcpy/test_xephyr.py`;
@@ -437,7 +611,7 @@ in the wrong place. Do not write it.
   relaunch must never count toward `launch_failure_limit`, since a resize can
   land moments after a launch. `screen_size` re-reads the root window every
   call, never `Display.screen()`'s handshake-captured `width_in_pixels`. See
-  `ScrcpySession._await_exit`'s `Design:` note. Guards:
+  `ScrcpySession._await_exit`'s `Design:` note. Guarded by
   `test_a_frame_resize_relaunches_scrcpy` and
   `test_a_resize_relaunch_is_not_counted_as_a_launch_failure` in
   `tests/scrcpy/test_session.py`;
@@ -454,7 +628,7 @@ in the wrong place. Do not write it.
   nested root. The binary is not needed to mirror a device, so its absence
   is logged once and skipped -- the declared policy that keeps this from
   being a library default nobody chose. See
-  `Xephyr._start_placeholder`'s `Design:` note. Guards:
+  `Xephyr._start_placeholder`'s `Design:` note. Guarded by
   `test_the_placeholder_is_painted_inside_the_frame`,
   `test_the_placeholder_is_started_after_matchbox`, and
   `test_a_missing_placeholder_binary_is_logged_and_skipped` in
@@ -470,7 +644,7 @@ in the wrong place. Do not write it.
   handlers that raise `KeyboardInterrupt` for the call's duration only,
   restoring whatever handler was there before in a `finally`, so nothing
   leaks into the rest of the process. See `cli/scrcpy.py`'s inline comment.
-  Guards: `test_scrcpy_treats_sigterm_the_same_as_a_keyboard_interrupt` and
+  Guarded by `test_scrcpy_treats_sigterm_the_same_as_a_keyboard_interrupt` and
   `test_scrcpy_restores_the_previous_sigterm_handler_after_running` in
   `tests/cli/test_scrcpy.py`.
 - **`ScrcpyRepo.resolve` returns a path to keep, not a temp file to
@@ -481,7 +655,7 @@ in the wrong place. Do not write it.
   freshly downloaded archive's SHA-256 is checked against the release's own
   `SHA256SUMS.txt` before extraction; `frida.repo.ServerRepo` has no matching
   step, since its binary is pushed to a device and never executed by this
-  host at all. See `ScrcpyRepo`'s `Design:` note. Guards:
+  host at all. See `ScrcpyRepo`'s `Design:` note. Guarded by
   `test_a_second_resolve_does_not_re_extract` and
   `test_a_checksum_mismatch_removes_the_archive_and_refuses` in
   `tests/scrcpy/test_repo.py`.
@@ -526,10 +700,12 @@ name`/`device tag add`/`device tag remove`):
   `Returns:` states the shape invariant and domain meaning, never the type —
   the annotation already gives the type. Split contract from rationale at the
   *clause*: a `because` inside a contract section is the tell a split was
-  missed.
+  missed. No guard: no linter in this repo parses docstring prose for a
+  misplaced rationale.
 - **A `Raises:` entry is `ExceptionName: condition.`** Prose passes every lint
   and documents no exception at all. Document what a caller must catch,
-  including exceptions merely propagated.
+  including exceptions merely propagated. No guard: no linter in this repo
+  checks a `Raises:` entry against the exceptions a function actually raises.
 - OOP by default: no module-level functions unless the module is a
   helper/utility collection.
 - One class per module. Exception: dataclasses tightly coupled to the class —
@@ -537,6 +713,8 @@ name`/`device tag add`/`device tag remove`):
 - **`__init__.py` holds no logic** — a package docstring only, at most re-exports
   of names defined in sibling modules. Code lives in a named module (a
   command's own module under `gunkata/cli/`), never in the package marker.
+  No guard: no linter in this repo distinguishes a re-export from logic in
+  an `__init__.py`.
 - Schema vs processor: a data schema goes in `types.py`; a processor gets its
   own module. Schemas mirror dependency structure — if B exists only because
   of A, nest B under A.
@@ -546,26 +724,32 @@ name`/`device tag add`/`device tag remove`):
   consumer needs it, colocation would force one consumer's module to import
   the other's — move it out to its own `settings.py` instead, the way
   `FridaSettings` serves both `FridaServer` and `ServerRepo` from
-  `frida/settings.py`.
+  `frida/settings.py`. No guard: whether a settings class has gained a
+  second consumer is a fact about the import graph no CLAUDE.md rule tracks.
 - **One level of generic nesting is the limit — name the structure.** Good:
   `list[str]`, `dict[str, int]`. Bad: `dict[int, list[tuple[set[str], int]]]`.
   A data shape that needs more gets a `@dataclass`; a callable shape that
   needs more than bare `Callable` gets a `Protocol` with a named `__call__`.
+  No guard: no linter in this repo counts generic nesting depth.
 - **Cohering arguments become a type.** When the same cluster of parameters
   recurs across call sites and together describes one entity, introduce a
-  dataclass. Domain objects over loose primitives.
+  dataclass. Domain objects over loose primitives. No guard: recognizing a
+  recurring cluster of parameters as one entity is a judgement call.
 - **`if TYPE_CHECKING:` is forbidden — a cycle it would hide is a placement
-  error.** Move the type to `types.py` or a third module instead.
+  error.** Move the type to `types.py` or a third module instead. No guard:
+  no linter in this repo forbids the `TYPE_CHECKING` import guard.
 - Absolute imports for anything above the current package; relative only for
   siblings. All imports at module top; function-local only for a genuine
   circular import or a legitimately lazy heavy dependency.
 - **Name a boolean after the state that carries consequence**; avoid negated
   names (`is_not_x`, `disabled`). Put the positive name on the informative
-  state so `not x` never reads as a double negative.
+  state so `not x` never reads as a double negative. No guard: no linter in
+  this repo flags a negated boolean name.
 - **Never catch a bare `except Exception` unless justified** — narrow to what
   you expect. A broad catch is only justified at a genuine resilience boundary
   (one bad item must not sink the batch); even then, log the exception with
-  context and comment the justification.
+  context and comment the justification. No guard: no linter in this repo is
+  configured to flag a bare `except Exception`.
 
 # Tests
 
@@ -573,7 +757,7 @@ name`/`device tag add`/`device tag remove`):
   fixtures, `monkeypatch`, `tmp_path`, `capsys`, `caplog`.
 - Non-trivial tests carry a docstring: WHAT is tested, WHY, and the expected
   outcome. Trivial tests whose name says it all need none.
-- **Every test gets an isolated `GUNKATA_ROOT`** — the autouse
+- **Every test gets an isolated `GUNKATA_ROOT`.** Guarded by the autouse
   `isolated_gunkata_root` fixture in `tests/conftest.py`, whose docstring says
   why. A test that reads the developer's own persisted device settings passes
   or fails according to whose machine ran it; an emulator test that needs a
@@ -587,7 +771,7 @@ name`/`device tag add`/`device tag remove`):
 A change is done when the **whole** suite is green — never just the package's:
 
 ```bash
-<run command, e.g. uv run pytest <package> scripts -q>
+uv run pytest
 ```
 
 The per-module run is the inner loop, not the gate — two failure classes are
@@ -595,21 +779,27 @@ invisible to it: construction/wiring (guard with a smoke test per CLI
 command), and cross-package invariants (a rule stated in one package is
 routinely guarded in another).
 
-**`scripts/check.sh` runs every gate this repo has** — lint, docs build, then
-the suite. When there is no CI, this script is the whole of it. If the gate
-deliberately excludes anything, this section says so, names the owner, and
-names the command that runs the excluded part.
+**This repository has no consolidated gate script yet — `uv run pytest` is
+the whole of the Definition of Done.** No lint or docs-build check is wired
+in; the maintainer owns adding one. No guard: whether the whole suite was
+actually run before calling a change done is known only to whoever ran it.
 
 # Branches & Worktrees
 
 - **Never check out a branch in the root checkout — always use a worktree.**
   Switching branches at the root silently redirects every subsequent edit.
+  No guard: by the time a pre-commit hook fires, the checkout has already
+  happened and the damage is done.
 - **Create worktrees under `.claude/worktrees/`, never as a sibling of the
   repo.** A sibling directory (`../gunkata-<branch>`) is easy to lose track
   of and easy to `rm -rf` by mistake when tidying up the parent directory.
+  No guard: a sibling directory is outside this repository, where none of
+  its hooks run.
 - **A feature gets a branch and a worktree; the gate is the merge, not the
   commit.** Commit to the branch freely; never merge into the default branch
-  without being asked. "Commit this" is not "merge this".
+  without being asked. "Commit this" is not "merge this". No guard: which
+  merges were asked for is known only to the person who asked; a hook cannot
+  tell a sanctioned merge from a stray one.
 - Verify the base ref before creating a worktree; confirm the current branch
   before committing.
 
@@ -621,3 +811,5 @@ names the command that runs the excluded part.
   for that specific upload. A green build, a version bump, or approval of an
   earlier release is never approval for the next one. An uploaded version can
   never be replaced, only yanked — so the gate is before the upload, not after.
+  No guard: whether a specific upload had the maintainer's approval is known
+  only to the parties of that conversation.

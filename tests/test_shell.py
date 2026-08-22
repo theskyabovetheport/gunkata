@@ -850,7 +850,7 @@ def test_pull_tree_lands_a_directory_under_its_own_basename(tmp_path):
 def test_pull_tree_merges_into_a_tree_that_is_already_there(tmp_path):
     """A repeat pull overwrites what it re-lands and leaves everything else,
     matching adb pull -- so a local tree is NOT a faithful snapshot of the
-    device's once a file has been deleted there. A survivor is also absent
+    device's once a file has been deleted there. A survivor is also absent history-ok
     from the result, which reports what this pull landed, not what the
     directory happens to contain.
     """

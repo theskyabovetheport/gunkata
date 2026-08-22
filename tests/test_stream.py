@@ -83,8 +83,9 @@ def test_context_manager_closes_a_stream_that_was_never_iterated():
 def test_a_with_block_that_never_reads_a_line_still_reports_a_failure():
     """A command that fails entirely on its own must not be discarded unread.
 
-    __exit__ used to close and stop there; a with-block that never iterates
-    could then finish, fail, and nobody would ever know.
+    A with-block that never iterates still owns the command it started:
+    __exit__ closes it and then raises when nothing else is already
+    propagating, so a failure cannot finish silently.
     """
     stream = _stream("exit 5")
     for _ in range(50):
